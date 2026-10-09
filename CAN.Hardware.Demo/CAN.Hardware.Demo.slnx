@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../CAN.Hardware/CAN.Hardware.csproj" />
+  <Project Path="CAN.Hardware.Demo.csproj" />
+</Solution>
