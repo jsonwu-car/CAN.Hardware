@@ -28,7 +28,6 @@ namespace CAN.Hardware.Entity
         private bool _isOpen = false;
         private Task? _readTask = null;
         private CancellationTokenSource? _cts = null;
-
         public bool Close()
         {
             lock (_lock)
@@ -70,7 +69,6 @@ namespace CAN.Hardware.Entity
             }
             return true;
         }
-
         public void FlushReceiveBuffer()
         {
             lock (_lock)
@@ -78,7 +76,6 @@ namespace CAN.Hardware.Entity
                 if (_handle >= 0) KvaserCanLibDLL.canFlushReceiveQueue(_handle);
             }
         }
-
         public void FlushTransmitBuffer()
         {
             lock (_lock)
@@ -86,7 +83,6 @@ namespace CAN.Hardware.Entity
                 if (_handle >= 0) KvaserCanLibDLL.canFlushTransmitQueue(_handle);
             }
         }
-
         public bool Open()
         {
             lock (_lock)
@@ -157,7 +153,6 @@ namespace CAN.Hardware.Entity
                 }
             }
         }
-
         private async Task ReadTaskProc(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -190,7 +185,6 @@ namespace CAN.Hardware.Entity
                 }
             }
         }
-
         private unsafe bool Read(ref CANFrame? frame)
         {
             lock (_lock)
@@ -231,7 +225,6 @@ namespace CAN.Hardware.Entity
                 }
             }
         }
-
         public unsafe bool Send(FrameBase frame)
         {
             lock (_lock)
@@ -275,7 +268,6 @@ namespace CAN.Hardware.Entity
                 }
             }
         }
-
         private int BuildCanBitrate(KvaserCanBitrate canBitRate)
         {
             switch (canBitRate)
