@@ -198,6 +198,8 @@ namespace CAN.Hardware.Entity
                     int id2;
                     uint dlc2, flag2, time2;
                     _canStatus = KvaserCanLibDLL.canRead(_handle, out id2, (IntPtr)ptr, out dlc2, out flag2, out time2);
+                    //钳制dlc到经典CAN有效范围，防止驱动返回异常值导致越界
+                    dlc2 = Math.Min(dlc2, DataLenConverter.MaxCanDataLength);
                     frame1.ID = CanFrameHelper.GetId(id2);
                     frame1.DLC = (int)dlc2;
                     frame1.Flag = (int)flag2;
@@ -232,6 +234,15 @@ namespace CAN.Hardware.Entity
                 if (!_isOpen || _handle < 0) return false;
 
                 if (frame is not CANFrame canFrame) return false;
+
+                //发送前校验数据长度合法性（非法参数直接抛异常，不做静默失败）
+                if (canFrame.FDF || canFrame.BRS)
+                    throw new ArgumentException("Classic CAN channel does not support CANFD frame(FDF/BRS).");
+                if (!DataLenConverter.IsValidCanLength(canFrame.DLC))
+                    throw new ArgumentException($"Invalid CAN DLC({canFrame.DLC}), valid range: 0-{DataLenConverter.MaxCanDataLength}.");
+                if (canFrame.Data == null || canFrame.Data.Length < canFrame.DLC)
+                    throw new ArgumentException($"Data length({canFrame.Data?.Length ?? 0}) is less than DLC({canFrame.DLC}).");
+
                 try
                 {
                     int maxWriteCount = 0;
