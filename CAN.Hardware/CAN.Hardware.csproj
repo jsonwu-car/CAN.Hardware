@@ -11,6 +11,9 @@
     <Content Include="HwDependency\Kvaser\Generic\Win\x64\canlib32.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="HwDependency\Peak\Generic\Win\x64\PCANBasic.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

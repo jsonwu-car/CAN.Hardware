@@ -6,6 +6,7 @@ namespace CAN.Hardware.Attributes
     public enum HardwareManufacturer
     {
         Kvaser,
+        Peak,
     }
 
     /// <summary>
@@ -22,6 +23,14 @@ namespace CAN.Hardware.Attributes
     /// Kvaser 设备类型
     /// </summary>
     public enum KvaserDeviceType
+    {
+        Generic,
+    }
+
+    /// <summary>
+    /// Peak 设备类型
+    /// </summary>
+    public enum PeakDeviceType
     {
         Generic,
     }

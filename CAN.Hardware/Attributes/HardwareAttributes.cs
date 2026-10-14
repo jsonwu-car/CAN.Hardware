@@ -14,6 +14,7 @@ namespace CAN.Hardware.Attributes
             new Dictionary<HardwareManufacturer, Type>
             {
                 { HardwareManufacturer.Kvaser, typeof(KvaserDeviceType) },
+                { HardwareManufacturer.Peak, typeof(PeakDeviceType) },
             };
 
         public HardwareManufacturer Manufacturer { get; }
