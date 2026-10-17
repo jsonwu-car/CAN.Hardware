@@ -1,4 +1,5 @@
 using CAN.Hardware.Attributes;
+using CAN.Hardware.BaseLibDll;
 using CAN.Hardware.Comm;
 using CAN.Hardware.Interface;
 using CAN.Hardware.Parameters;
@@ -9,6 +10,9 @@ DemoCanFd();
 // PEAK 演示需要实际 PEAK 硬件(PCAN-USB 等)及 PCAN-Basic 驱动,默认不启用
 // DemoPeakCan();
 // DemoPeakCanFd();
+// TOSUN 演示需要实际同星硬件(TC1014 等)及 libTSCAN 驱动,默认不启用
+// DemoTosunCan();
+// DemoTosunCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -210,6 +214,107 @@ static void DemoPeakCanFd()
     finally
     {
         peakFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// TOSUN CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
+static void DemoTosunCan()
+{
+    IHardware? tosun = FactoryInstance.GetInstance(HardwareManufacturer.Tosun, TosunDeviceType.Generic, CommProtocol.CAN);
+    if (tosun == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (ToSunCANConfig)tosun.Config;
+    config.ChannelIndex = CHANNEL_INDEX.CHN1;                 // 通道索引(0基)
+    config.CanBitrate = 500;                                  // 波特率 500K(Kbps)
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    tosun.eventHandler += OnFrame;
+
+    try
+    {
+        if (!tosun.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Tosun CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = tosun.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        tosun.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// TOSUN CAN FD 调用示例：默认仲裁段 500K，数据段 2M(Kbps)
+static void DemoTosunCanFd()
+{
+    IHardware? tosunFd = FactoryInstance.GetInstance(HardwareManufacturer.Tosun, TosunDeviceType.Generic, CommProtocol.CANFD);
+    if (tosunFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为仲裁段 500K、数据段 2M）
+    var config = (ToSunCanFDConfig)tosunFd.Config;
+    config.ChannelIndex = CHANNEL_INDEX.CHN1;                 // 通道索引(0基)
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    tosunFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!tosunFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Tosun CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = tosunFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        tosunFd.Close();
         Console.WriteLine("Closed.");
     }
 }

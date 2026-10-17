@@ -7,6 +7,7 @@ namespace CAN.Hardware.Attributes
     {
         Kvaser,
         Peak,
+        Tosun,
     }
 
     /// <summary>
@@ -31,6 +32,14 @@ namespace CAN.Hardware.Attributes
     /// Peak 设备类型
     /// </summary>
     public enum PeakDeviceType
+    {
+        Generic,
+    }
+
+    /// <summary>
+    /// Tosun(同星) 设备类型
+    /// </summary>
+    public enum TosunDeviceType
     {
         Generic,
     }
