@@ -8,6 +8,7 @@ namespace CAN.Hardware.Attributes
         Kvaser,
         Peak,
         Tosun,
+        Zlg,
     }
 
     /// <summary>
@@ -42,5 +43,14 @@ namespace CAN.Hardware.Attributes
     public enum TosunDeviceType
     {
         Generic,
+    }
+
+    /// <summary>
+    /// ZLG(周立功) 设备类型
+    /// </summary>
+    public enum ZlgDeviceType
+    {
+        USBCAN,
+        USBCANFD200U
     }
 }

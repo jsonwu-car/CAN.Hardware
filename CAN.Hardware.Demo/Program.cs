@@ -13,6 +13,9 @@ DemoCanFd();
 // TOSUN 演示需要实际同星硬件(TC1014 等)及 libTSCAN 驱动,默认不启用
 // DemoTosunCan();
 // DemoTosunCanFd();
+// ZLG 演示需要实际周立功硬件(USBCAN-2E-U/USBCANFD-200U 等)及 zlgcan 驱动,默认不启用
+// DemoZlgCan();
+// DemoZlgCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -315,6 +318,111 @@ static void DemoTosunCanFd()
     finally
     {
         tosunFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// ZLG CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
+static void DemoZlgCan()
+{
+    IHardware? zlg = FactoryInstance.GetInstance(HardwareManufacturer.Zlg, ZlgDeviceType.USBCAN, CommProtocol.CAN);
+    if (zlg == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (ZlgCANConfig)zlg.Config;
+    config.DeviceModel = ZlgDeviceModel.USBCAN_2E_U;          // 设备型号
+    config.DeviceIndex = 0;                                   // 设备索引号
+    config.DeviceChannel = 0;                                 // 通道号(0基)
+    config.CanBitrate = ZlgCanBitrate._500K;                  // 波特率 500K
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    zlg.eventHandler += OnFrame;
+
+    try
+    {
+        if (!zlg.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ZLG CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = zlg.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        zlg.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// ZLG CAN FD 调用示例：默认仲裁段 500K，数据段 2M
+static void DemoZlgCanFd()
+{
+    IHardware? zlgFd = FactoryInstance.GetInstance(HardwareManufacturer.Zlg, ZlgDeviceType.USBCAN, CommProtocol.CANFD);
+    if (zlgFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为 USBCANFD-200U、仲裁段 500K、数据段 2M）
+    var config = (ZlgCanFDConfig)zlgFd.Config;
+    config.DeviceModel = ZlgDeviceModel.USBCANFD_200U;        // 设备型号
+    config.DeviceIndex = 0;                                   // 设备索引号
+    config.DeviceChannel = 0;                                 // 通道号(0基)
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    zlgFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!zlgFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ZLG CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = zlgFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        zlgFd.Close();
         Console.WriteLine("Closed.");
     }
 }

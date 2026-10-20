@@ -16,6 +16,7 @@ namespace CAN.Hardware.Attributes
                 { HardwareManufacturer.Kvaser, typeof(KvaserDeviceType) },
                 { HardwareManufacturer.Peak, typeof(PeakDeviceType) },
                 { HardwareManufacturer.Tosun, typeof(TosunDeviceType) },
+                { HardwareManufacturer.Zlg, typeof(ZlgDeviceType) },
             };
 
         public HardwareManufacturer Manufacturer { get; }
