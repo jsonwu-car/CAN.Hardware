@@ -16,6 +16,9 @@ DemoCanFd();
 // ZLG 演示需要实际周立功硬件(USBCAN-2E-U/USBCANFD-200U 等)及 zlgcan 驱动,默认不启用
 // DemoZlgCan();
 // DemoZlgCanFd();
+// Vector 演示需要实际 Vector 硬件(VN1630 等)及 Vector XL Driver,默认不启用
+// DemoVectorCan();
+// DemoVectorCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -423,6 +426,111 @@ static void DemoZlgCanFd()
     finally
     {
         zlgFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// Vector CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
+static void DemoVectorCan()
+{
+    IHardware? vector = FactoryInstance.GetInstance(HardwareManufacturer.Vector, VectorDeviceType.Generic, CommProtocol.CAN);
+    if (vector == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (VectorCanConfig)vector.Config;
+    config.HardwareType = VectorHwType.VN1630;                // Vector 硬件型号
+    config.Channel = new XLchannelInfo { HwChannel = 0 };     // 硬件通道号(0基)
+    config.CanBitrate = VectorCanBitrate.canBITRATE_500K;     // 波特率 500K
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    vector.eventHandler += OnFrame;
+
+    try
+    {
+        if (!vector.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Vector CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = vector.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        vector.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// Vector CAN FD 调用示例：默认仲裁段 500K，数据段 2M
+static void DemoVectorCanFd()
+{
+    IHardware? vectorFd = FactoryInstance.GetInstance(HardwareManufacturer.Vector, VectorDeviceType.Generic, CommProtocol.CANFD);
+    if (vectorFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为 VN1630、仲裁段 500K、数据段 2M）
+    var config = (VectorCanFDConfig)vectorFd.Config;
+    config.HardwareType = VectorHwType.VN1630;                // Vector 硬件型号
+    config.Channel = new XLchannelInfo { HwChannel = 0 };     // 硬件通道号(0基)
+    config.CanFdArbitrationBitrate = VectorCanBitrate.canBITRATE_500K;    // 仲裁段波特率 500K
+    config.CanFdDataBitrate = VectorCanFdBitrate.canFD_BITRATE_2M;        // 数据段波特率 2M
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    vectorFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!vectorFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Vector CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = vectorFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        vectorFd.Close();
         Console.WriteLine("Closed.");
     }
 }

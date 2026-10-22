@@ -9,6 +9,7 @@ namespace CAN.Hardware.Attributes
         Peak,
         Tosun,
         Zlg,
+        Vector,
     }
 
     /// <summary>
@@ -52,5 +53,13 @@ namespace CAN.Hardware.Attributes
     {
         USBCAN,
         USBCANFD200U
+    }
+
+    /// <summary>
+    /// Vector 设备类型
+    /// </summary>
+    public enum VectorDeviceType
+    {
+        Generic,
     }
 }

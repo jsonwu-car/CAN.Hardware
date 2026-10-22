@@ -20,6 +20,9 @@
     <Content Include="HwDependency\Tosun\Generic\Win\x64\libTSH.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="HwDependency\Vector\Generic\Win\x64\vxlapi64.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="HwDependency\Zlg\USBCAN\Win\x64\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
