@@ -47,9 +47,24 @@ namespace CAN.Hardware.Entity
                     if (status != NiXnetLibDLL.NX_SUCCESS)
                         throw new Exception($"Create output session failed({NiXnetLibDLL.GetStatusString(status)})");
 
-                    // 两个会话共享同一物理接口,仲裁段/数据段波特率均需分别设置
-                    ulong baudrate = (ulong)_canConfig.CanFdArbitrationBitrate;
-                    ulong fdBaudrate = (ulong)_canConfig.CanFdDataBitrate;
+                    // 两个会话共享同一物理接口,仲裁段/数据段波特率均需分别设置;
+                    // 自定义模式打包高级位时序值(tqNs=Prescale*25, TSEG1=Prop+Phase1, TSEG2=Phase2),
+                    // 数据段与仲裁段字段布局不同,需分别打包
+                    ulong baudrate, fdBaudrate;
+                    if (_canConfig.EnableCustomBitrate)
+                    {
+                        if (_canConfig.Arbitration_Tq != 1 + _canConfig.Arbitration_prop + _canConfig.Arbitration_phase1 + _canConfig.Arbitration_phase2)
+                            throw new ArgumentException($"Invalid arbitration bit timing: Tq({_canConfig.Arbitration_Tq}) must equal 1 + Prop + Phase1 + Phase2({1 + _canConfig.Arbitration_prop + _canConfig.Arbitration_phase1 + _canConfig.Arbitration_phase2}).");
+                        if (_canConfig.Data_Tq != 1 + _canConfig.Data_prop + _canConfig.Data_phase1 + _canConfig.Data_phase2)
+                            throw new ArgumentException($"Invalid data bit timing: Tq({_canConfig.Data_Tq}) must equal 1 + Prop + Phase1 + Phase2({1 + _canConfig.Data_prop + _canConfig.Data_phase1 + _canConfig.Data_phase2}).");
+                        baudrate = NiXnetLibDLL.PackCustomBaudRate(_canConfig.Arbitration_prescale, _canConfig.Arbitration_prop + _canConfig.Arbitration_phase1, _canConfig.Arbitration_phase2, _canConfig.Arbitration_sjw);
+                        fdBaudrate = NiXnetLibDLL.PackCustomFdDataBaudRate(_canConfig.Data_prescale, _canConfig.Data_prop + _canConfig.Data_phase1, _canConfig.Data_phase2, _canConfig.Data_sjw);
+                    }
+                    else
+                    {
+                        baudrate = (ulong)_canConfig.CanFdArbitrationBitrate;
+                        fdBaudrate = (ulong)_canConfig.CanFdDataBitrate;
+                    }
                     status = NiXnetLibDLL.nxSetProperty64(inSession, NiXnetLibDLL.NX_PROP_SESSION_INTF_BAUD_RATE64, 8, ref baudrate);
                     if (status != NiXnetLibDLL.NX_SUCCESS)
                         throw new Exception($"Set input session baudrate failed({NiXnetLibDLL.GetStatusString(status)})");

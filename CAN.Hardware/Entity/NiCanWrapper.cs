@@ -47,8 +47,19 @@ namespace CAN.Hardware.Entity
                     if (status != NiXnetLibDLL.NX_SUCCESS)
                         throw new Exception($"Create output session failed({NiXnetLibDLL.GetStatusString(status)})");
 
-                    // 两个会话共享同一物理接口,波特率需分别设置
-                    ulong baudrate = (ulong)_canConfig.CanBitrate;
+                    // 两个会话共享同一物理接口,波特率需分别设置;
+                    // 自定义模式打包高级位时序值(tqNs=Prescale*25, TSEG1=Prop+Phase1, TSEG2=Phase2)
+                    ulong baudrate;
+                    if (_canConfig.EnableCustomBitrate)
+                    {
+                        if (_canConfig.Tq != 1 + _canConfig.Prop + _canConfig.Phase1 + _canConfig.Phase2)
+                            throw new ArgumentException($"Invalid bit timing: Tq({_canConfig.Tq}) must equal 1 + Prop + Phase1 + Phase2({1 + _canConfig.Prop + _canConfig.Phase1 + _canConfig.Phase2}).");
+                        baudrate = NiXnetLibDLL.PackCustomBaudRate(_canConfig.Prescale, _canConfig.Prop + _canConfig.Phase1, _canConfig.Phase2, _canConfig.Sjw);
+                    }
+                    else
+                    {
+                        baudrate = (ulong)_canConfig.CanBitrate;
+                    }
                     status = NiXnetLibDLL.nxSetProperty64(inSession, NiXnetLibDLL.NX_PROP_SESSION_INTF_BAUD_RATE64, 8, ref baudrate);
                     if (status != NiXnetLibDLL.NX_SUCCESS)
                         throw new Exception($"Set input session baudrate failed({NiXnetLibDLL.GetStatusString(status)})");

@@ -85,6 +85,60 @@ namespace CAN.Hardware.BaseLibDll
         [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void nxStatusToString(int status, [Out] byte[] statusString, uint sizeOfStatusString);
 
+        // NI-XNET CAN 硬件时基 40MHz(1 个 tq 时钟周期 = 25ns);
+        // 自定义波特率值中的 tq 字段填时间量子长度(ns),驱动据此推导预分频
+        internal const int NX_CAN_TQ_NS = 25;
+
+        /// <summary>
+        /// 打包 NI-XNET 高级(自定义)波特率值(经典 CAN 与 FD 仲裁段通用):
+        /// tqNs&lt;&lt;32 | 0xA0000000 | (sjw-1)&lt;&lt;16 | (tseg1-1)&lt;&lt;8 | (tseg2-1)。
+        /// 字段存实际值-1(硬件字段为 0 基); tqNs = prescale × 25; 波特率 = 1 / (tqNs × (1 + TSEG1 + TSEG2))。
+        /// </summary>
+        internal static ulong PackCustomBaudRate(int prescale, int tseg1, int tseg2, int sjw)
+        {
+            int tqNs = prescale * NX_CAN_TQ_NS;
+            if (prescale < 1 || tqNs > 0xFFFF)
+                throw new ArgumentOutOfRangeException(nameof(prescale), prescale, "prescale valid range: 1-2621(tqNs <= 65535).");
+            if (tseg1 < 1 || tseg1 > 128)
+                throw new ArgumentOutOfRangeException(nameof(tseg1), tseg1, "tseg1 valid range: 1-128.");
+            if (tseg2 < 1 || tseg2 > 128)
+                throw new ArgumentOutOfRangeException(nameof(tseg2), tseg2, "tseg2 valid range: 1-128.");
+            if (sjw < 1 || sjw > 128)
+                throw new ArgumentOutOfRangeException(nameof(sjw), sjw, "sjw valid range: 1-128.");
+            if (sjw > tseg2)
+                throw new ArgumentOutOfRangeException(nameof(sjw), sjw, "sjw must not be greater than tseg2.");
+            return ((ulong)tqNs << 32)
+                | 0xA0000000ul
+                | (ulong)((sjw - 1) << 16)
+                | (ulong)((tseg1 - 1) << 8)
+                | (ulong)(tseg2 - 1);
+        }
+
+        /// <summary>
+        /// 打包 CAN FD 数据段的高级(自定义)波特率值(字段布局与仲裁段不同):
+        /// 0xA0000000 | tqNs&lt;&lt;13 | (tseg1-1)&lt;&lt;8 | (tseg2-1)&lt;&lt;4 | (sjw-1)。
+        /// 高位 TDC 字段(bit55 使能/46..40 偏移/38..32 滤波)保持 0(关闭)。
+        /// </summary>
+        internal static ulong PackCustomFdDataBaudRate(int prescale, int tseg1, int tseg2, int sjw)
+        {
+            int tqNs = prescale * NX_CAN_TQ_NS;
+            if (prescale < 1 || tqNs > 0x3FFF)
+                throw new ArgumentOutOfRangeException(nameof(prescale), prescale, "prescale valid range: 1-655(tqNs <= 16383).");
+            if (tseg1 < 1 || tseg1 > 32)
+                throw new ArgumentOutOfRangeException(nameof(tseg1), tseg1, "tseg1 valid range: 1-32.");
+            if (tseg2 < 1 || tseg2 > 16)
+                throw new ArgumentOutOfRangeException(nameof(tseg2), tseg2, "tseg2 valid range: 1-16.");
+            if (sjw < 1 || sjw > 16)
+                throw new ArgumentOutOfRangeException(nameof(sjw), sjw, "sjw valid range: 1-16.");
+            if (sjw > tseg2)
+                throw new ArgumentOutOfRangeException(nameof(sjw), sjw, "sjw must not be greater than tseg2.");
+            return 0xA0000000ul
+                | ((ulong)tqNs << 13)
+                | (ulong)((tseg1 - 1) << 8)
+                | (ulong)((tseg2 - 1) << 4)
+                | (ulong)(sjw - 1);
+        }
+
         /// <summary>
         /// 一帧在流中占用的字节数: 帧头 + max(8, 向上 8 字节对齐的负载区)
         /// </summary>

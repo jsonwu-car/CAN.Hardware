@@ -552,6 +552,11 @@ static void DemoNiCan()
     var config = (NiCANConfig)ni.Config;
     config.InterfaceName = "CAN1";                            // NI-XNET 接口名(可在 NI MAX 中查看)
     config.CanBitrate = NiCanBitrate.niBAUD_500K;             // 波特率 500K
+    // 自定义波特率(任意位时序,40MHz 时基打包;默认值即 500K、采样点 87.5%):
+    // config.EnableCustomBitrate = true;
+    // config.Prescale = 5; config.Tq = 16;                    // 波特率 = 40MHz/(Prescale*Tq)
+    // config.Prop = 8; config.Phase1 = 5;                     // TSEG1 = Prop+Phase1
+    // config.Phase2 = 2; config.Sjw = 1;                      // TSEG2 = Phase2, SJW
 
     // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
     ni.eventHandler += OnFrame;
@@ -601,6 +606,11 @@ static void DemoNiCanFd()
     // 配置硬件参数（默认即为仲裁段 500K、数据段 2M）
     var config = (NiCanFDConfig)niFd.Config;
     config.InterfaceName = "CAN1";                            // NI-XNET 接口名(可在 NI MAX 中查看)
+    // 自定义波特率(任意位时序,40MHz 时基打包;默认值即仲裁段 500K@87.5%、数据段 2M@80%):
+    // config.EnableCustomBitrate = true;
+    // config.Arbitration_prescale = 5; config.Arbitration_Tq = 16;   // 仲裁段 = 40MHz/(prescale*Tq)
+    // config.Data_prescale = 1; config.Data_Tq = 20;                 // 数据段 = 40MHz/(prescale*Tq)
+    // 采样点/SJW 由 Arbitration_* 与 Data_* 的 Prop/Phase1/Phase2/Sjw 决定
 
     // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
     niFd.eventHandler += OnFrame;
