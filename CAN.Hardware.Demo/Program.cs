@@ -19,6 +19,9 @@ DemoCanFd();
 // Vector 演示需要实际 Vector 硬件(VN1630 等)及 Vector XL Driver,默认不启用
 // DemoVectorCan();
 // DemoVectorCanFd();
+// ETAS 演示需要实际 ETAS 硬件(ES581/ES584/ES592 等)及 ETAS BOA V2 驱动(随 INCA 等工具链安装),默认不启用
+// DemoEtasCan();
+// DemoEtasCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -531,6 +534,109 @@ static void DemoVectorCanFd()
     finally
     {
         vectorFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// ETAS CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
+static void DemoEtasCan()
+{
+    IHardware? etas = FactoryInstance.GetInstance(HardwareManufacturer.Etas, EtasDeviceType.Generic, CommProtocol.CAN);
+    if (etas == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (EtasCANConfig)etas.Config;
+    config.ChannelIndex = 0;                                  // 通道索引(0基,按 CSI 枚举到的 CAN 节点排序)
+    // config.InterfaceUri = "/ETAS.ETH://ES581.4/CAN:1";     // 也可直接指定 BOA 硬件 URI
+    config.CanBitrate = EtasCanBitrate.etasBAUD_500K;         // 波特率 500K
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    etas.eventHandler += OnFrame;
+
+    try
+    {
+        if (!etas.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ETAS CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = etas.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        etas.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// ETAS CAN FD 调用示例：默认仲裁段 500K，数据段 2M
+static void DemoEtasCanFd()
+{
+    IHardware? etasFd = FactoryInstance.GetInstance(HardwareManufacturer.Etas, EtasDeviceType.Generic, CommProtocol.CANFD);
+    if (etasFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为仲裁段 500K、数据段 2M）
+    var config = (EtasCanFDConfig)etasFd.Config;
+    config.ChannelIndex = 0;                                  // 通道索引(0基)
+    // config.InterfaceUri = "/ETAS.ETH://ES581.4/CAN:1";     // 也可直接指定 BOA 硬件 URI
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    etasFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!etasFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ETAS CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = etasFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        etasFd.Close();
         Console.WriteLine("Closed.");
     }
 }

@@ -10,6 +10,7 @@ namespace CAN.Hardware.Attributes
         Tosun,
         Zlg,
         Vector,
+        Etas,
     }
 
     /// <summary>
@@ -59,6 +60,14 @@ namespace CAN.Hardware.Attributes
     /// Vector 设备类型
     /// </summary>
     public enum VectorDeviceType
+    {
+        Generic,
+    }
+
+    /// <summary>
+    /// ETAS 设备类型
+    /// </summary>
+    public enum EtasDeviceType
     {
         Generic,
     }
