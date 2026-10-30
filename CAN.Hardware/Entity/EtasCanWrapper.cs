@@ -26,9 +26,12 @@ namespace CAN.Hardware.Entity
         //用于硬件的配置(用于硬件的初始化，亦可用于WPF Xaml的Binding)
         public BusConfigBase Config => _canConfig;
 
-        // 使用单一锁保护所有状态和硬件操作
+        // 使用单一锁保护所有状态和硬件操作; _isOpen 会被驱动回调线程读取, 需要 volatile
         private readonly object _lock = new object();
-        private bool _isOpen = false;
+        private volatile bool _isOpen = false;
+
+        // 硬件定时器频率(tick/秒), Open 时查询; 0 表示查询失败, 报文时间戳保持 0
+        private uint _tickFrequency;
 
         public bool Open()
         {
@@ -45,17 +48,26 @@ namespace CAN.Hardware.Entity
                     string uri = ResolveUri();
 
                     // 创建控制器(内部自行 CSI 搜索),API 版本固定协商 1.3
+                    // out 句柄先接局部变量: 失败时驱动不回写句柄, 编组默认值为 0, 不能让它混进清理路径
                     var version = EtasBoaLibDLL.ApiV13;
-                    var status = EtasBoaLibDLL.CreateCANControllerVersion(uri, ref version, out ctrl);
+                    var status = EtasBoaLibDLL.CreateCANControllerVersion(uri, ref version, out int created);
                     if (status != EtasBoaLibDLL.EtasErrorCode.SUCCESS)
                         throw new Exception($"Create CAN controller failed({uri}, {status})");
+                    ctrl = created;
 
                     // 配置并打开控制器(经典 CAN);仅把带 ERROR 位的返回值当失败,WARNING(如 PARAM_ADAPTED 参数被微调)放行
-                    var cfg = EtasBoaLibDLL.EtasCanConfiguration.Create((uint)_canConfig.CanBitrate, 0);
+                    // 自定义波特率: OCI 的 baudrate 本就 Hz 直填,连同采样点/BTL_Cycles/SJW 一起下发
+                    var cfg = _canConfig.EnableCustomBitrate
+                        ? EtasBoaLibDLL.EtasCanConfiguration.Create(_canConfig.CustomBitrate, 0,
+                            _canConfig.SamplePoint, _canConfig.BtlCycles, _canConfig.Sjw)
+                        : EtasBoaLibDLL.EtasCanConfiguration.Create((uint)_canConfig.CanBitrate, 0);
                     var props = new EtasBoaLibDLL.EtasControllerProperties { mode = 0 };
                     status = EtasBoaLibDLL.OpenCANController(ctrl, ref cfg, ref props);
                     if (EtasBoaLibDLL.IsError(status))
                         throw new Exception($"Open CAN controller failed({uri}, {status})");
+
+                    // 查询硬件定时器频率供报文时间戳换算; 失败降级为无时间戳, 不影响打开
+                    _tickFrequency = EtasBoaLibDLL.QueryTickFrequency(ctrl);
 
                     // 创建发送队列
                     var txCfg = new EtasBoaLibDLL.EtasTxQueueConfiguration();
@@ -91,6 +103,7 @@ namespace CAN.Hardware.Entity
                         try { EtasBoaLibDLL.DestroyCANController(ctrl); } catch { }
                     }
                     _ctrlHandle = _txHandle = _rxHandle = EtasBoaLibDLL.UNDEFINED;
+                    _tickFrequency = 0;
                     _isOpen = false;
                     throw new Exception($"{nameof(Open)}:{ex.Message}");
                 }
@@ -106,7 +119,7 @@ namespace CAN.Hardware.Entity
                 var nodes = EtasBoaLibDLL.EnumerateNodes("CAN:");
                 if (nodes.Count == 0)
                     throw new Exception("未发现任何 ETAS CAN 硬件节点");
-                if (_canConfig.ChannelIndex >= nodes.Count)
+                if (_canConfig.ChannelIndex < 0 || _canConfig.ChannelIndex >= nodes.Count)
                     throw new Exception($"通道索引 {_canConfig.ChannelIndex} 超出可用 CAN 节点数({nodes.Count})");
                 uri = nodes[_canConfig.ChannelIndex];
             }
@@ -119,17 +132,24 @@ namespace CAN.Hardware.Entity
             {
                 if (!_isOpen) return true;
 
-                // Destroy 会级联释放其下的 Tx/Rx 队列
+                // 先置关闭标志, 阻止在途回调继续推送报文
+                _isOpen = false;
+
+                bool ok = true;
                 if (_ctrlHandle != EtasBoaLibDLL.UNDEFINED)
                 {
-                    try { EtasBoaLibDLL.DestroyCANController(_ctrlHandle); } catch { }
-                    _ctrlHandle = EtasBoaLibDLL.UNDEFINED;
+                    // 先 Close 让控制器下线, 再 Destroy 级联释放其下的 Tx/Rx 队列
+                    try { EtasBoaLibDLL.CloseCANController(_ctrlHandle); } catch { }
+                    try
+                    {
+                        ok = !EtasBoaLibDLL.IsError(EtasBoaLibDLL.DestroyCANController(_ctrlHandle));
+                    }
+                    catch { ok = false; }
+                    if (ok) _ctrlHandle = _txHandle = _rxHandle = EtasBoaLibDLL.UNDEFINED;
                 }
-                _txHandle = _rxHandle = EtasBoaLibDLL.UNDEFINED;
-                _rxCallback = null;
-                _isOpen = false;
+                // 接收委托不置空: 驱动侧可能仍有在途回调, 保持引用防止 GC 回收 thunk 后命中野指针
+                return ok;
             }
-            return true;
         }
 
         public void FlushReceiveBuffer()
@@ -171,7 +191,7 @@ namespace CAN.Hardware.Entity
             }
         }
 
-        private static CANFrame Convert(in EtasBoaLibDLL.EtasCanRxMsg rx)
+        private CANFrame Convert(in EtasBoaLibDLL.EtasCanRxMsg rx)
         {
             CANFrame frame1 = new CANFrame();
             frame1.ID = BuildId(rx.frameID, rx.flags);
@@ -179,14 +199,14 @@ namespace CAN.Hardware.Entity
             frame1.DLC = Math.Min((int)rx.dlc, DataLenConverter.MaxCanDataLength);
             frame1.Flag = rx.flags;
             frame1.Flags = EtasCanFlagParser.Parse(rx.flags);
-            //ETAS 时间戳为硬件 timer tick(频率需 OCI_GetTimerCapabilities 查询),当前未换算
+            frame1.Timestamp = TicksToMicros(rx.timeStamp);
             frame1.Data = new byte[frame1.DLC];
             frame1.Dir = 1;
             Array.Copy(rx.data, 0, frame1.Data, 0, frame1.DLC);
             return frame1;
         }
 
-        private static CANFrame Convert(in EtasBoaLibDLL.EtasCanFdRxMsg rx)
+        private CANFrame Convert(in EtasBoaLibDLL.EtasCanFdRxMsg rx)
         {
             CANFrame frame1 = new CANFrame();
             frame1.ID = BuildId(rx.frameID, rx.flags);
@@ -195,10 +215,19 @@ namespace CAN.Hardware.Entity
             frame1.Flags = EtasCanFlagParser.Parse(rx.flags);
             frame1.FDF = (rx.flags & EtasBoaLibDLL.MSG_FLAG_FD_DATA) != 0;
             frame1.BRS = (rx.flags & EtasBoaLibDLL.MSG_FLAG_FD_DATA_BIT_RATE) != 0;
+            frame1.Timestamp = TicksToMicros(rx.timeStamp);
             frame1.Data = new byte[frame1.DLC];
             frame1.Dir = 1;
             Array.Copy(rx.data, 0, frame1.Data, 0, frame1.DLC);
             return frame1;
+        }
+
+        //硬件 tick 换算为微秒(与 Peak/ToSun/Vector/Zlg 通路单位一致); 拆商余计算避免 tick×1e6 溢出
+        private ulong TicksToMicros(long ticks)
+        {
+            if (_tickFrequency == 0 || ticks <= 0) return 0;
+            ulong t = (ulong)ticks, f = _tickFrequency;
+            return t / f * 1_000_000UL + t % f * 1_000_000UL / f;
         }
 
         //将 EFF/RTR 标志合成到 ID 高位(SocketCAN 风格)
@@ -212,25 +241,29 @@ namespace CAN.Hardware.Entity
 
         public bool Send(FrameBase frame)
         {
+            if (frame is not CANFrame canFrame) return false;
+
+            //发送前校验数据长度合法性（非法参数直接抛异常，不做静默失败）
+            if (canFrame.FDF || canFrame.BRS)
+                throw new ArgumentException("Classic CAN channel does not support CANFD frame(FDF/BRS).");
+            if (!DataLenConverter.IsValidCanLength(canFrame.DLC))
+                throw new ArgumentException($"Invalid CAN DLC({canFrame.DLC}), valid range: 0-{DataLenConverter.MaxCanDataLength}.");
+            if (canFrame.Data == null || canFrame.Data.Length < canFrame.DLC)
+                throw new ArgumentException($"Data length({canFrame.Data?.Length ?? 0}) is less than DLC({canFrame.DLC}).");
+
+            ushort flags;
+            bool sent;
             lock (_lock)
             {
                 if (!_isOpen || _txHandle == EtasBoaLibDLL.UNDEFINED) return false;
-
-                if (frame is not CANFrame canFrame) return false;
-
-                //发送前校验数据长度合法性（非法参数直接抛异常，不做静默失败）
-                if (canFrame.FDF || canFrame.BRS)
-                    throw new ArgumentException("Classic CAN channel does not support CANFD frame(FDF/BRS).");
-                if (!DataLenConverter.IsValidCanLength(canFrame.DLC))
-                    throw new ArgumentException($"Invalid CAN DLC({canFrame.DLC}), valid range: 0-{DataLenConverter.MaxCanDataLength}.");
-                if (canFrame.Data == null || canFrame.Data.Length < canFrame.DLC)
-                    throw new ArgumentException($"Data length({canFrame.Data?.Length ?? 0}) is less than DLC({canFrame.DLC}).");
 
                 try
                 {
                     canFrame.Dir = 0;
                     var msg = new EtasBoaLibDLL.EtasCanTxMsg
                     {
+                        type = EtasBoaLibDLL.MSG_TYPE_TX_MESSAGE,
+                        reserved = 0,
                         frameID = CanFrameHelper.GetId(canFrame.ID),
                         flags = 0,
                         res = 0,
@@ -241,7 +274,7 @@ namespace CAN.Hardware.Entity
                     if (CanFrameHelper.IsRTR(canFrame.ID)) msg.flags |= EtasBoaLibDLL.MSG_FLAG_REMOTE_FRAME;
                     Array.Copy(canFrame.Data, 0, msg.data, 0, canFrame.DLC);
 
-                    // OCI_WriteCANDataEx 收发指针数组(支持混合尺寸批量写),这里单帧;
+                    // OCI_WriteCANDataEx 收发 OCI_CANMessageEx* 指针数组(支持混合尺寸批量写),这里单帧;
                     // timeout=0 立即返回,队列满时由 remaining 回读实际未写入数量
                     IntPtr ptr = Marshal.AllocHGlobal(EtasBoaLibDLL.TX_MSG_SIZE);
                     try
@@ -250,23 +283,27 @@ namespace CAN.Hardware.Entity
                         var messages = new IntPtr[] { ptr };
                         uint remaining = 1;
                         var status = EtasBoaLibDLL.WriteCANDataEx(_txHandle, 0, messages, 1, ref remaining);
-                        if (status != EtasBoaLibDLL.EtasErrorCode.SUCCESS || remaining != 0) return false;
+                        sent = status == EtasBoaLibDLL.EtasErrorCode.SUCCESS && remaining == 0;
                     }
                     finally
                     {
                         Marshal.FreeHGlobal(ptr);
                     }
-
-                    canFrame.Flag = msg.flags;
-                    canFrame.Flags = EtasCanFlagParser.Parse(msg.flags);
-                    eventHandler?.Invoke(this, canFrame);
-                    return true;
+                    flags = msg.flags;
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"{nameof(Send)}:{ex.Message}");
+                    throw new Exception($"{nameof(Send)}:{ex.Message}", ex);
                 }
             }
+
+            if (!sent) return false;
+
+            // 锁外推送发送回显, 避免订阅者在持锁路径上阻塞或重入
+            canFrame.Flag = flags;
+            canFrame.Flags = EtasCanFlagParser.Parse(flags);
+            eventHandler?.Invoke(this, canFrame);
+            return true;
         }
     }
 }

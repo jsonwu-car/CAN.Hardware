@@ -553,6 +553,10 @@ static void DemoEtasCan()
     config.ChannelIndex = 0;                                  // 通道索引(0基,按 CSI 枚举到的 CAN 节点排序)
     // config.InterfaceUri = "/ETAS.ETH://ES581.4/CAN:1";     // 也可直接指定 BOA 硬件 URI
     config.CanBitrate = EtasCanBitrate.etasBAUD_500K;         // 波特率 500K
+    // 自定义波特率(如 83.3K): 启用后枚举波特率被忽略, 时序参数随之一并下发
+    // config.EnableCustomBitrate = true;
+    // config.CustomBitrate = 83333;                          // Hz 直填
+    // config.SamplePoint = 75; config.BtlCycles = 10; config.Sjw = 1;
 
     // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
     etas.eventHandler += OnFrame;

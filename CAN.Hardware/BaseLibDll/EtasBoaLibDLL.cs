@@ -100,11 +100,13 @@ namespace CAN.Hardware.BaseLibDll
                 // OCI (dll-ocdProxy.dll)
                 CreateCANControllerVersion = GetDelegate<OciCreateControllerVersion>(_boaModule, "OCI_CreateCANControllerVersion");
                 DestroyCANController = GetDelegate<OciDestroyController>(_boaModule, "OCI_DestroyCANController");
+                CloseCANController = GetDelegate<OciCloseController>(_boaModule, "OCI_CloseCANController");
                 OpenCANController = GetDelegate<OciOpenCANController>(_boaModule, "OCI_OpenCANController");
                 CreateCANTxQueue = GetDelegate<OciCreateCANTxQueue>(_boaModule, "OCI_CreateCANTxQueue");
                 CreateCANRxQueue = GetDelegate<OciCreateCANRxQueue>(_boaModule, "OCI_CreateCANRxQueue");
                 WriteCANDataEx = GetDelegate<OciWriteCANDataEx>(_boaModule, "OCI_WriteCANDataEx");
                 AddCANFrameFilter = GetDelegate<OciAddCANFrameFilter>(_boaModule, "OCI_AddCANFrameFilter");
+                GetTimerCapabilities = GetDelegate<OciGetTimerCapabilities>(_boaModule, "OCI_GetTimerCapabilities");
 
                 // CSI (dll-csiBind.dll)
                 CreateProtocolTree = GetDelegate<CsiCreateProtocolTree>(_csiModule, "CSI_CreateProtocolTree");
@@ -217,7 +219,7 @@ namespace CAN.Hardware.BaseLibDll
         internal struct EtasCanFdConfiguration
         {
             public uint bitRate;                            // 数据段波特率(Hz)
-            public uint samplePoint;                        // 采样点(单位 0.1%, 80 = 80.0%)
+            public uint samplePoint;                        // 采样点(单位 1%, 80 = 80%)
             public uint BTL_Cycles;                         // 每比特时间量子数
             public uint SJW;
             public uint flags;                              // OCI_CANFD_FLAGS
@@ -234,7 +236,7 @@ namespace CAN.Hardware.BaseLibDll
         internal struct EtasCanConfiguration
         {
             public uint baudrate;                           // 仲裁段波特率(Hz)
-            public uint samplePoint;                        // 采样点(单位 0.1%, 75 = 75.0%)
+            public uint samplePoint;                        // 采样点(单位 1%, 75 = 75%)
             public uint samplesPerBit;                      // 1 = ONE_SAMPLE_PER_BIT
             public uint BTL_Cycles;
             public uint SJW;
@@ -247,17 +249,20 @@ namespace CAN.Hardware.BaseLibDll
             public uint canTxPolicy;                        // 1 = FIFO
 
             /// <summary>
-            /// 构造控制器配置; fdBaudrateHz = 0 表示经典 CAN, 否则使能 CAN FD 并设置数据段波特率
+            /// 构造控制器配置; fdBaudrateHz = 0 表示经典 CAN, 否则使能 CAN FD 并设置数据段波特率。
+            /// 波特率/采样点/BTL_Cycles/SJW 均可自定义(OCI 直接下发,硬件不支持时返回 PARAM_ADAPTED/ERROR)
             /// </summary>
-            internal static EtasCanConfiguration Create(uint baudrateHz, uint fdBaudrateHz)
+            internal static EtasCanConfiguration Create(uint baudrateHz, uint fdBaudrateHz,
+                uint samplePoint = 75, uint btlCycles = 10, uint sjw = 1,
+                uint fdSamplePoint = 80, uint fdBtlCycles = 10, uint fdSjw = 1)
             {
                 return new EtasCanConfiguration
                 {
                     baudrate = baudrateHz,
-                    samplePoint = 75,
+                    samplePoint = samplePoint,
                     samplesPerBit = 1,
-                    BTL_Cycles = 10,
-                    SJW = 1,
+                    BTL_Cycles = btlCycles,
+                    SJW = sjw,
                     syncEdge = 1,
                     physicalMedia = 1,
                     selfReceptionMode = 0,
@@ -266,9 +271,9 @@ namespace CAN.Hardware.BaseLibDll
                     canFDConfig = new EtasCanFdConfiguration
                     {
                         bitRate = fdBaudrateHz,
-                        samplePoint = 80,
-                        BTL_Cycles = 10,
-                        SJW = 1,
+                        samplePoint = fdSamplePoint,
+                        BTL_Cycles = fdBtlCycles,
+                        SJW = fdSjw,
                         flags = 0,
                         txSecondarySamplePointOffset = 0,
                         canRxMode = 2,
@@ -315,6 +320,23 @@ namespace CAN.Hardware.BaseLibDll
             public uint tag;
         }
 
+        /// <summary>OCI_TimerCapabilities: 定时器能力; 本封装只用 tickFrequency(tick/秒) 换算报文时间戳, 其余字段保持布局占位</summary>
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        internal struct EtasTimerCapabilities
+        {
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 40)]
+            public string localClockID;
+            public uint format;
+            public uint tickFrequency;
+            public uint ticksPerIncrement;
+            public uint localStratumLevel;
+            public uint localReferenceScale;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 40)]
+            public string localTimeOriginIso8601;
+            public uint syncSlave;
+            public uint syncMaster;
+        }
+
         // ---------------- 消息结构体 ----------------
 
         // OCI_CAN 消息类型(回调消息头 type 字段)
@@ -337,10 +359,12 @@ namespace CAN.Hardware.BaseLibDll
         internal const ushort MSG_FLAG_FD_ERROR_PASSIVE = 0x20;   // FD 发送节点错误被动(≈ESI)
         internal const ushort MSG_FLAG_FD_DATA = 0x40;            // CAN FD 帧
 
-        /// <summary>OCI_CANTxMessage(16 字节), 发送消息不带消息头(队列已限定类型)</summary>
+        /// <summary>OCI_CAN 发送消息(OCI_CANMessageEx 装 OCI_CANTxMessage, 24 字节), 与接收消息一样带 type+reserved 头</summary>
         [StructLayout(LayoutKind.Sequential)]
         internal struct EtasCanTxMsg
         {
+            public uint type;       // 2 = OCI_CAN_TX_MESSAGE
+            public uint reserved;
             public uint frameID;
             public ushort flags;
             public byte res;
@@ -349,10 +373,12 @@ namespace CAN.Hardware.BaseLibDll
             public byte[] data;
         }
 
-        /// <summary>OCI_CANFDTxMessage(72 字节)</summary>
+        /// <summary>OCI_CANFD 发送消息(OCI_CANMessageEx 装 OCI_CANFDTxMessage, 80 字节)</summary>
         [StructLayout(LayoutKind.Sequential)]
         internal struct EtasCanFdTxMsg
         {
+            public uint type;       // 9 = OCI_CANFDTX_MESSAGE
+            public uint reserved;
             public uint frameID;
             public ushort flags;
             public byte res;
@@ -367,7 +393,7 @@ namespace CAN.Hardware.BaseLibDll
         {
             public uint type;
             public uint reserved;
-            public long timeStamp;  // OCI_Time 硬件 tick(频率需 OCI_GetTimerCapabilities 查询), 当前未换算
+            public long timeStamp;  // OCI_Time 硬件 tick, 按 tickFrequency(见 QueryTickFrequency) 换算
             public uint tag;
             public uint frameID;
             public ushort flags;
@@ -384,7 +410,7 @@ namespace CAN.Hardware.BaseLibDll
         {
             public uint type;
             public uint reserved;
-            public long timeStamp;
+            public long timeStamp;  // OCI_Time 硬件 tick, 按 tickFrequency(见 QueryTickFrequency) 换算
             public uint tag;
             public uint frameID;
             public ushort flags;
@@ -395,13 +421,12 @@ namespace CAN.Hardware.BaseLibDll
             public byte[] data;
         }
 
-        internal static readonly int TX_MSG_SIZE = Marshal.SizeOf<EtasCanTxMsg>();       // 16
-        internal static readonly int FD_TX_MSG_SIZE = Marshal.SizeOf<EtasCanFdTxMsg>();  // 72
+        internal static readonly int TX_MSG_SIZE = Marshal.SizeOf<EtasCanTxMsg>();       // 24
+        internal static readonly int FD_TX_MSG_SIZE = Marshal.SizeOf<EtasCanFdTxMsg>();  // 80
 
         // ---------------- CSI 硬件枚举结构体 ----------------
 
-        // CSI 节点类型
-        private const uint NODE_TYPE_CONTROLLER_PORT = 0x2001;
+        // CSI 节点类型范围(物理节点)
         private const uint NODE_TYPE_MIN_PHYSICAL_NODE = 0x2000;
         private const uint NODE_TYPE_MAX_PHYSICAL_NODE = 0x2fff;
 
@@ -484,6 +509,8 @@ namespace CAN.Hardware.BaseLibDll
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate EtasErrorCode OciDestroyController(int handle);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate EtasErrorCode OciCloseController(int handle);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate EtasErrorCode OciOpenCANController(int handle, ref EtasCanConfiguration configuration, ref EtasControllerProperties properties);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate EtasErrorCode OciCreateCANTxQueue(int handle, ref EtasTxQueueConfiguration configuration, out int queue);
@@ -494,6 +521,8 @@ namespace CAN.Hardware.BaseLibDll
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate EtasErrorCode OciAddCANFrameFilter(int queue, EtasRxFilter[] filter, uint count);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        internal delegate EtasErrorCode OciGetTimerCapabilities(int handle, ref EtasTimerCapabilities capabilities);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         internal delegate void OciCallbackEx(IntPtr userData, IntPtr msg);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
@@ -503,13 +532,24 @@ namespace CAN.Hardware.BaseLibDll
 
         internal static OciCreateControllerVersion CreateCANControllerVersion = null!;
         internal static OciDestroyController DestroyCANController = null!;
+        internal static OciCloseController CloseCANController = null!;
         internal static OciOpenCANController OpenCANController = null!;
         internal static OciCreateCANTxQueue CreateCANTxQueue = null!;
         internal static OciCreateCANRxQueue CreateCANRxQueue = null!;
         internal static OciWriteCANDataEx WriteCANDataEx = null!;
         internal static OciAddCANFrameFilter AddCANFrameFilter = null!;
+        internal static OciGetTimerCapabilities GetTimerCapabilities = null!;
         private static CsiCreateProtocolTree CreateProtocolTree = null!;
         private static CsiDestroyProtocolTree DestroyProtocolTree = null!;
+
+        /// <summary>
+        /// 查询控制器硬件定时器频率(tick/秒), 用于把报文 timeStamp 换算成时间; 查询失败返回 0, 调用方按"无时间戳"降级
+        /// </summary>
+        internal static uint QueryTickFrequency(int ctrlHandle)
+        {
+            var caps = new EtasTimerCapabilities();
+            return IsError(GetTimerCapabilities(ctrlHandle, ref caps)) ? 0 : caps.tickFrequency;
+        }
 
         /// <summary>
         /// 通过 CSI 协议树枚举支持指定协议的硬件节点路径(如 "/ETAS.ETH://ES581.4/CAN:1")
@@ -527,8 +567,8 @@ namespace CAN.Hardware.BaseLibDll
             try
             {
                 var nodes = new List<string>();
-                var root = Marshal.PtrToStructure<EtasCsiTree>(treeHandle);
-                if (root != null) WalkTree(root, string.Empty, protocol, nodes);
+                // 按名称过滤(与 python-can 的 ETAS 绑定一致), nodeType 不作硬过滤, 避免驱动返回值差异导致漏枚举
+                WalkTree(treeHandle, string.Empty, protocol, nodes, new HashSet<IntPtr>());
                 nodes.Sort(StringComparer.Ordinal);
                 return nodes;
             }
@@ -538,21 +578,22 @@ namespace CAN.Hardware.BaseLibDll
             }
         }
 
-        private static void WalkTree(EtasCsiTree node, string prefix, string protocol, List<string> nodes)
+        // visited 防环: sibling/child 链若因驱动异常成环, 已访问节点直接截断, 不会死循环
+        private static void WalkTree(IntPtr nodePtr, string prefix, string protocol, List<string> nodes, HashSet<IntPtr> visited)
         {
-            while (node != null)
+            while (nodePtr != IntPtr.Zero && visited.Add(nodePtr))
             {
+                var node = Marshal.PtrToStructure<EtasCsiTree>(nodePtr);
+                if (node == null) break;
+
                 string name = prefix + "/" + node.item.Name;
-                if (node.item.nodeType == NODE_TYPE_CONTROLLER_PORT && name.Contains(protocol))
+                if (name.Contains(protocol))
                     nodes.Add(name);
 
                 if (node.child != IntPtr.Zero)
-                {
-                    var child = Marshal.PtrToStructure<EtasCsiTree>(node.child);
-                    if (child != null) WalkTree(child, name, protocol, nodes);
-                }
+                    WalkTree(node.child, name, protocol, nodes, visited);
 
-                node = node.sibling != IntPtr.Zero ? Marshal.PtrToStructure<EtasCsiTree>(node.sibling) : null;
+                nodePtr = node.sibling;
             }
         }
     }
