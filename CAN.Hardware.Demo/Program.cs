@@ -19,6 +19,9 @@ DemoCanFd();
 // Vector 演示需要实际 Vector 硬件(VN1630 等)及 Vector XL Driver,默认不启用
 // DemoVectorCan();
 // DemoVectorCanFd();
+// ETAS 演示需要实际 ETAS 硬件(ES581/ES584/ES592 等)及 ETAS BOA V2 驱动(随 INCA 等工具链安装),默认不启用
+// DemoEtasCan();
+// DemoEtasCanFd();
 // NI 演示需要实际 NI 硬件(USB-8502 等)及 NI-XNET 驱动,默认不启用
 // DemoNiCan();
 // DemoNiCanFd();
@@ -534,117 +537,6 @@ static void DemoVectorCanFd()
     finally
     {
         vectorFd.Close();
-        Console.WriteLine("Closed.");
-    }
-}
-
-// NI CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
-static void DemoNiCan()
-{
-    IHardware? ni = FactoryInstance.GetInstance(HardwareManufacturer.Ni, NiDeviceType.Generic, CommProtocol.CAN);
-    if (ni == null)
-    {
-        Console.WriteLine("未找到匹配的硬件实现。");
-        return;
-    }
-
-    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
-    var config = (NiCANConfig)ni.Config;
-    config.InterfaceName = "CAN1";                            // NI-XNET 接口名(可在 NI MAX 中查看)
-    config.CanBitrate = NiCanBitrate.niBAUD_500K;             // 波特率 500K
-    // 自定义波特率(任意位时序,40MHz 时基打包;默认值即 500K、采样点 87.5%):
-    // config.EnableCustomBitrate = true;
-    // config.Prescale = 5; config.Tq = 16;                    // 波特率 = 40MHz/(Prescale*Tq)
-    // config.Prop = 8; config.Phase1 = 5;                     // TSEG1 = Prop+Phase1
-    // config.Phase2 = 2; config.Sjw = 1;                      // TSEG2 = Phase2, SJW
-
-    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
-    ni.eventHandler += OnFrame;
-
-    try
-    {
-        if (!ni.Open())
-        {
-            Console.WriteLine("Open failed.");
-            return;
-        }
-        Console.WriteLine("NI CAN opened.");
-
-        // 发送一帧标准帧
-        var frame = new CANFrame
-        {
-            ID = 0x123,
-            DLC = 8,
-            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
-        };
-        bool sent = ni.Send(frame);
-        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
-        Console.ReadKey();
-    }
-    catch (Exception ex)
-    {
-        // 未连接硬件/驱动时 Open 会抛出异常
-        Console.WriteLine($"Error: {ex.Message}");
-    }
-    finally
-    {
-        ni.Close();
-        Console.WriteLine("Closed.");
-    }
-}
-
-// NI CAN FD 调用示例：默认仲裁段 500K，数据段 2M
-static void DemoNiCanFd()
-{
-    IHardware? niFd = FactoryInstance.GetInstance(HardwareManufacturer.Ni, NiDeviceType.Generic, CommProtocol.CANFD);
-    if (niFd == null)
-    {
-        Console.WriteLine("未找到匹配的硬件实现。");
-        return;
-    }
-
-    // 配置硬件参数（默认即为仲裁段 500K、数据段 2M）
-    var config = (NiCanFDConfig)niFd.Config;
-    config.InterfaceName = "CAN1";                            // NI-XNET 接口名(可在 NI MAX 中查看)
-    // 自定义波特率(任意位时序,40MHz 时基打包;默认值即仲裁段 500K@87.5%、数据段 2M@80%):
-    // config.EnableCustomBitrate = true;
-    // config.Arbitration_prescale = 5; config.Arbitration_Tq = 16;   // 仲裁段 = 40MHz/(prescale*Tq)
-    // config.Data_prescale = 1; config.Data_Tq = 20;                 // 数据段 = 40MHz/(prescale*Tq)
-    // 采样点/SJW 由 Arbitration_* 与 Data_* 的 Prop/Phase1/Phase2/Sjw 决定
-
-    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
-    niFd.eventHandler += OnFrame;
-
-    try
-    {
-        if (!niFd.Open())
-        {
-            Console.WriteLine("Open failed.");
-            return;
-        }
-        Console.WriteLine("NI CAN FD opened.");
-
-        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
-        var frame = new CANFrame
-        {
-            ID = 0x123,
-            DLC = 64,
-            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
-            FDF = true,
-            BRS = true,
-        };
-        bool sent = niFd.Send(frame);
-        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
-        Console.ReadKey();
-    }
-    catch (Exception ex)
-    {
-        // 未连接硬件/驱动时 Open 会抛出异常
-        Console.WriteLine($"Error: {ex.Message}");
-    }
-    finally
-    {
-        niFd.Close();
         Console.WriteLine("Closed.");
     }
 }
