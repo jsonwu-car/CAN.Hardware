@@ -10,8 +10,8 @@ namespace CAN.Hardware.Attributes
         Tosun,
         Zlg,
         Vector,
-        Etas,
         Ni,
+        Etas,
     }
 
     /// <summary>
@@ -66,6 +66,12 @@ namespace CAN.Hardware.Attributes
     }
 
     /// <summary>
+    /// NI(National Instruments) 设备类型
+    /// </summary>
+    public enum NiDeviceType
+    {
+        Generic,
+    }
     /// ETAS 设备类型。
     /// ETAS 走 BOA V2 驱动 + CSI 协议树枚举,不按型号区分(Generic 即全部):
     /// 凡 BOA V2 驱动支持、CSI 树中暴露 CAN 控制器端口的硬件均可使用,常见型号如
@@ -74,15 +80,7 @@ namespace CAN.Hardware.Attributes
     /// </summary>
     public enum EtasDeviceType
     {
-        /// <summary>全部 ETAS BOA V2 CAN/CANFD 硬件通用</summary>
-        Generic,
-    }
 
-    /// <summary>
-    /// NI(National Instruments) 设备类型
-    /// </summary>
-    public enum NiDeviceType
-    {
         Generic,
     }
 }
