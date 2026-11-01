@@ -145,15 +145,16 @@ namespace CAN.Hardware.Entity
         }
 
         // ntcan 默认关闭所有 ID 的接收,需按 ID 段显式使能(参考实现未检查返回值,此处补齐)
+        // idCount 语义为"使能个数"(非末位 ID): 标准段 0x800 个(0..0x7FF), 扩展段 0x20000000 个(bit29 置位起全范围)
         private static void EnableAllIdRegions(IntPtr handle)
         {
-            int cnt = (int)EsdNtcanLibDLL.NTCAN_STD_ID_MASK;   // 0x7FF
+            int cnt = (int)(EsdNtcanLibDLL.NTCAN_STD_ID_MASK + 1);   // 0x800
             var result = EsdNtcanLibDLL.CanIdRegionAdd(handle, 0, ref cnt);
             if (result != EsdNtcanLibDLL.EsdCanResult.OK)
                 throw new Exception($"Enable standard ID region failed({result})");
 
-            cnt = (int)(EsdNtcanLibDLL.NTCAN_EXT_ID_MASK - EsdNtcanLibDLL.NTCAN_STD_ID_MASK);   // 0x1FFFF800
-            result = EsdNtcanLibDLL.CanIdRegionAdd(handle, (int)(EsdNtcanLibDLL.NTCAN_EXT_ID_MASK + 1), ref cnt);
+            cnt = (int)(EsdNtcanLibDLL.NTCAN_EXT_ID_MASK + 1);   // 0x20000000
+            result = EsdNtcanLibDLL.CanIdRegionAdd(handle, (int)EsdNtcanLibDLL.NTCAN_EXT_FLAG, ref cnt);
             if (result != EsdNtcanLibDLL.EsdCanResult.OK)
                 throw new Exception($"Enable extended ID region failed({result})");
         }

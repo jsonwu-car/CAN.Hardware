@@ -173,7 +173,7 @@ namespace CAN.Hardware.BaseLibDll
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate EsdCanResult SetBaudrateFunc(IntPtr handle, uint baud);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate EsdCanResult SetBaudrateXFunc(IntPtr handle, EsdBaudrateXNum baudrateConfig);
+        private delegate EsdCanResult SetBaudrateXFunc(IntPtr handle, in EsdBaudrateXNum baudrateConfig);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate EsdCanResult IdRegionAddFunc(IntPtr handle, int idStart, ref int idCount);
 
@@ -290,10 +290,13 @@ namespace CAN.Hardware.BaseLibDll
             return _setBaudrate!(handle, baud);
         }
 
-        internal static EsdCanResult CanSetBaudrateX(IntPtr handle, EsdBaudrateXNum config)
+        // 原生签名是 const NTCAN_BAUDRATE_X*(见官方 fd_send.c: canSetBaudrateX(handle, &baud)),
+        // 必须按引用传递: x64 下按值传递大结构体恰好按隐藏引用传递而"侥幸可用",
+        // 但 x86 Cdecl 下结构体压栈会被当作指针解引用,直接访问冲突
+        internal static EsdCanResult CanSetBaudrateX(IntPtr handle, in EsdBaudrateXNum config)
         {
             EnsureLoaded();
-            return _setBaudrateX!(handle, config);
+            return _setBaudrateX!(handle, in config);
         }
 
         /// <summary>canIdRegionAdd: 使能一段 ID 接收范围(ntcan 默认关闭所有 ID,需显式使能), idCount 为 in/out(驱动可回写实际使能数量)</summary>
