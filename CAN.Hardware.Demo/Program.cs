@@ -28,6 +28,9 @@ DemoCanFd();
 // NI 演示需要实际 NI 硬件(USB-8502 等)及 NI-XNET 驱动,默认不启用
 // DemoNiCan();
 // DemoNiCanFd();
+// Intrepid 演示需要实际 Intrepid 硬件(neoVI FIRE/ValueCAN4 等)及 neoVI API(icsneo40.dll)驱动,默认不启用
+// DemoIntrepidCan();
+// DemoIntrepidCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -650,6 +653,112 @@ static void DemoEsdCanFd()
     finally
     {
         esdFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// Intrepid CAN 调用示例：与 PEAK 一致，仅厂商/设备类型枚举、配置类型不同
+static void DemoIntrepidCan()
+{
+    IHardware? intrepid = FactoryInstance.GetInstance(HardwareManufacturer.Intrepid, IntrepidDeviceType.Generic, CommProtocol.CAN);
+    if (intrepid == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (IntrepidCANConfig)intrepid.Config;
+    config.Channel = 0;                                          // 通道号(0基,对应设备 HSCAN1)
+    config.CanBitrate = IntrepidCanBitrate.icsBAUD_500K;         // 波特率 500K
+    // 自定义波特率(任意 bps 数值,驱动自动取最近值):
+    // config.EnableCustomBitrate = true;
+    // config.CustomBitrate = 250000;                             // 例如 250K
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    intrepid.eventHandler += OnFrame;
+
+    try
+    {
+        if (!intrepid.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Intrepid CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = intrepid.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        intrepid.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// Intrepid CAN FD 调用示例：默认仲裁段 500K，数据段 2M
+static void DemoIntrepidCanFd()
+{
+    IHardware? intrepidFd = FactoryInstance.GetInstance(HardwareManufacturer.Intrepid, IntrepidDeviceType.Generic, CommProtocol.CANFD);
+    if (intrepidFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为仲裁段 500K、数据段 2M）
+    var config = (IntrepidCanFDConfig)intrepidFd.Config;
+    config.Channel = 0;                                                   // 通道号(0基,对应设备 HSCAN1)
+    config.CanFdArbitrationBitrate = IntrepidCanBitrate.icsBAUD_500K;     // 仲裁段波特率 500K
+    config.CanFdDataBitrate = IntrepidCanFdBitrate.icsFDBAUD_2M;          // 数据段波特率 2M
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    intrepidFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!intrepidFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Intrepid CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧（FDF + BRS）
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = intrepidFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        intrepidFd.Close();
         Console.WriteLine("Closed.");
     }
 }

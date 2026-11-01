@@ -13,6 +13,7 @@ namespace CAN.Hardware.Attributes
         Esd,
         Ni,
         Etas,
+        Intrepid,
     }
 
     /// <summary>
@@ -90,6 +91,17 @@ namespace CAN.Hardware.Attributes
     public enum EtasDeviceType
     {
 
+        Generic,
+    }
+
+    /// <summary>
+    /// Intrepid(英特佩斯) 设备类型。
+    /// 与 ETAS/NI 一样不按型号区分(Generic 即全部):凡 neoVI API(icsneo40.dll)
+    /// 支持的设备均可使用,常见型号如 neoVI FIRE2/FIRE3、neoVI RED2、ValueCAN4 系列、
+    /// RAD-Galaxy/Gigastar 等(取设备的高速 CAN 通道 HSCAN1~HSCAN7)。
+    /// </summary>
+    public enum IntrepidDeviceType
+    {
         Generic,
     }
 }
