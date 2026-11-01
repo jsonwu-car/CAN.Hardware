@@ -10,6 +10,7 @@ namespace CAN.Hardware.Attributes
         Tosun,
         Zlg,
         Vector,
+        Esd,
         Ni,
         Etas,
     }
@@ -61,6 +62,14 @@ namespace CAN.Hardware.Attributes
     /// Vector 设备类型
     /// </summary>
     public enum VectorDeviceType
+    {
+        Generic,
+    }
+
+    /// <summary>
+    /// ESD(esd electronics) 设备类型
+    /// </summary>
+    public enum EsdDeviceType
     {
         Generic,
     }
