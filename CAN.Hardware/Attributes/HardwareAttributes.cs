@@ -22,6 +22,7 @@ namespace CAN.Hardware.Attributes
                 { HardwareManufacturer.Etas, typeof(EtasDeviceType) },
                 { HardwareManufacturer.Ni, typeof(NiDeviceType) },
                 { HardwareManufacturer.Intrepid, typeof(IntrepidDeviceType) },
+                { HardwareManufacturer.EbEl, typeof(EbElDeviceType) },
             };
 
         public HardwareManufacturer Manufacturer { get; }

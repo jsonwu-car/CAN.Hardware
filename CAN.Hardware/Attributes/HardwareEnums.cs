@@ -14,6 +14,7 @@ namespace CAN.Hardware.Attributes
         Ni,
         Etas,
         Intrepid,
+        EbEl,
     }
 
     /// <summary>
@@ -101,6 +102,17 @@ namespace CAN.Hardware.Attributes
     /// RAD-Galaxy/Gigastar 等(取设备的高速 CAN 通道 HSCAN1~HSCAN7)。
     /// </summary>
     public enum IntrepidDeviceType
+    {
+        Generic,
+    }
+
+    /// <summary>
+    /// EbEl(Eberspächer Electronics 埃贝赫电子) 设备类型。
+    /// 不按型号区分(Generic 即全部):凡 FlexCard 驱动(fcbase.dll)支持、
+    /// 带 CAN 控制器的硬件均可使用,如 FlexCard Cyclone II 系列、FlexCard USB、FlexXCon 系列。
+    /// 注意:该 API 只有经典 CAN,无 CAN FD。
+    /// </summary>
+    public enum EbElDeviceType
     {
         Generic,
     }

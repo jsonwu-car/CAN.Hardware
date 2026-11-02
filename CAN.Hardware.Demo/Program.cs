@@ -31,6 +31,8 @@ DemoCanFd();
 // Intrepid 演示需要实际 Intrepid 硬件(neoVI FIRE/ValueCAN4 等)及 neoVI API(icsneo40.dll)驱动,默认不启用
 // DemoIntrepidCan();
 // DemoIntrepidCanFd();
+// EbEl 演示需要实际 Eberspächer FlexCard 硬件及 FlexCard 驱动(fcbase.dll),默认不启用;注意 FlexCard 只有经典 CAN
+// DemoEbElCan();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -759,6 +761,57 @@ static void DemoIntrepidCanFd()
     finally
     {
         intrepidFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// EbEl(Eberspächer Electronics FlexCard) CAN 调用示例：仅经典 CAN(FlexCard 无 CAN FD)
+static void DemoEbElCan()
+{
+    IHardware? ebel = FactoryInstance.GetInstance(HardwareManufacturer.EbEl, EbElDeviceType.Generic, CommProtocol.CAN);
+    if (ebel == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（Config 返回 BusConfigBase，转为具体配置类型后设置）
+    var config = (EbElCANConfig)ebel.Config;
+    config.Channel = 0;                                       // 通道号(0基,对应设备 CC1)
+    config.CanBitrate = EbElCanBitrate.fcBAUD_500K;           // 波特率 500K(按位时序表配置)
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    ebel.eventHandler += OnFrame;
+
+    try
+    {
+        if (!ebel.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("EbEl CAN opened.");
+
+        // 发送一帧标准帧
+        // 注意: FlexCard 发送是缓冲式(fcbCANTransmit 只给缓冲号+数据),ID 由缓冲配置决定
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = ebel.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        ebel.Close();
         Console.WriteLine("Closed.");
     }
 }
