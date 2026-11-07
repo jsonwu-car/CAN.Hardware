@@ -147,10 +147,11 @@ static void DemoCanFd()
     }
 }
 
-// Kvaser LIN 调用示例：LIN 是请求-响应式总线,主节点需通过 Read 主动轮询从机
+// Kvaser LIN 调用示例：LIN 是请求-响应式总线,主节点用 RequestMessage 发报头,应答经事件异步上抛
 static void DemoKvaserLin()
 {
-    IHardware? kvaserLin = FactoryInstance.GetInstance(HardwareManufacturer.Kvaser, KvaserDeviceType.Generic, CommProtocol.LIN);
+    // 工厂返回 IHardware,需要 LIN 专用能力时转为 ILinHardware
+    ILinHardware? kvaserLin = FactoryInstance.GetInstance(HardwareManufacturer.Kvaser, KvaserDeviceType.Generic, CommProtocol.LIN) as ILinHardware;
     if (kvaserLin == null)
     {
         Console.WriteLine("未找到匹配的硬件实现。");
@@ -185,17 +186,12 @@ static void DemoKvaserLin()
         bool sent = kvaserLin.Send(frame);
         Console.WriteLine(sent ? "Frame sent." : "Send failed.");
 
-        // 主节点请求从机应答：发送 0x11 的报头并等待从机响应（LIN 的"读"）
-        FrameBase? request = new LINFrame { ID = 0x11 };
-        if (kvaserLin.Read(ref request) && request is LINFrame response)
-        {
-            Console.WriteLine($"Slave response: ID=0x{response.ID:X2} DLC={response.DLC} " +
-                              $"Data={Convert.ToHexString(response.Data)} Flags={response.Flags}");
-        }
-        else
-        {
-            Console.WriteLine("No slave response.");
-        }
+        // 可选：唤醒休眠的从节点(唤醒后按需延时约 100ms)
+        kvaserLin.WakeUp();
+
+        // 主节点请求从机应答：只发 0x11 的报头,应答经 eventHandler 异步到达(见 OnFrame)
+        bool requested = kvaserLin.RequestMessage(0x11);
+        Console.WriteLine(requested ? "Message requested." : "Request failed.");
         Console.ReadKey();
     }
     catch (Exception ex)
