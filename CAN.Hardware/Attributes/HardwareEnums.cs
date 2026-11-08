@@ -16,6 +16,7 @@ namespace CAN.Hardware.Attributes
         Intrepid,
         EbEl,
         ChuangXin,
+        Toomoss,
     }
 
     /// <summary>
@@ -71,6 +72,16 @@ namespace CAN.Hardware.Attributes
     {
         USBCAN,
         USBCANFD,
+    }
+
+    /// <summary>
+    /// 图莫斯(Toomoss) USB2XXX 设备类型。
+    /// USB2XXX 系列(USB2CAN / USB2CANFD / USB2XXX 多功能适配器)统一由 USB2XXX.dll 驱动,
+    /// CAN 与 CANFD 只是同一设备上的不同协议通路,因此统一使用 Generic。
+    /// </summary>
+    public enum ToomossDeviceType
+    {
+        Generic,
     }
 
     /// <summary>

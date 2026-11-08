@@ -37,6 +37,10 @@ DemoCanFd();
 // DemoChuangXinCan();
 // 创芯科技 CANFD 演示需要实际 USBCANFD 硬件(200U/100U/MINI)及 ControlCANFD.dll,默认不启用
 // DemoChuangXinCanFd();
+// 图莫斯 Toomoss 经典 CAN 演示需要实际 USB2XXX 硬件及 USB2XXX.dll,默认不启用
+// DemoToomossCan();
+// 图莫斯 Toomoss CANFD 演示需要实际 USB2XXX 硬件及 USB2XXX.dll,默认不启用
+// DemoToomossCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -922,6 +926,103 @@ static void DemoChuangXinCanFd()
     finally
     {
         chuangXinFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 图莫斯 Toomoss 经典 CAN 调用示例:USB2XXX 系列
+static void DemoToomossCan()
+{
+    IHardware? toomoss = FactoryInstance.GetInstance(HardwareManufacturer.Toomoss, ToomossDeviceType.Generic, CommProtocol.CAN);
+    if (toomoss == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    var config = (ToomossCANConfig)toomoss.Config;
+    config.DeviceIndex = 0;                                   // USB_ScanDevice 返回的设备序号
+    config.ChannelIndex = 0;                                  // 通道号(0基)
+    config.CanBitrate = 500000;                               // bps
+
+    toomoss.eventHandler += OnFrame;
+
+    try
+    {
+        if (!toomoss.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Toomoss CAN opened.");
+
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = toomoss.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        toomoss.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 图莫斯 Toomoss CANFD 调用示例:USB2XXX 系列
+static void DemoToomossCanFd()
+{
+    IHardware? toomossFd = FactoryInstance.GetInstance(HardwareManufacturer.Toomoss, ToomossDeviceType.Generic, CommProtocol.CANFD);
+    if (toomossFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    var config = (ToomossCanFDConfig)toomossFd.Config;
+    config.DeviceIndex = 0;                                   // USB_ScanDevice 返回的设备序号
+    config.ChannelIndex = 0;                                  // 通道号(0基)
+    config.ArbitrationBitrate = 500000;                       // 仲裁段 bps
+    config.DataBitrate = 2000000;                             // 数据段 bps
+
+    toomossFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!toomossFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Toomoss CAN FD opened.");
+
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = toomossFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        toomossFd.Close();
         Console.WriteLine("Closed.");
     }
 }

@@ -24,6 +24,7 @@ namespace CAN.Hardware.Attributes
                 { HardwareManufacturer.Intrepid, typeof(IntrepidDeviceType) },
                 { HardwareManufacturer.EbEl, typeof(EbElDeviceType) },
                 { HardwareManufacturer.ChuangXin, typeof(ChuangXinDeviceType) },
+                { HardwareManufacturer.Toomoss, typeof(ToomossDeviceType) },
             };
 
         public HardwareManufacturer Manufacturer { get; }
