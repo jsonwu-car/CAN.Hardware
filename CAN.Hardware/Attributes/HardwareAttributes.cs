@@ -23,6 +23,7 @@ namespace CAN.Hardware.Attributes
                 { HardwareManufacturer.Ni, typeof(NiDeviceType) },
                 { HardwareManufacturer.Intrepid, typeof(IntrepidDeviceType) },
                 { HardwareManufacturer.EbEl, typeof(EbElDeviceType) },
+                { HardwareManufacturer.ChuangXin, typeof(ChuangXinDeviceType) },
             };
 
         public HardwareManufacturer Manufacturer { get; }

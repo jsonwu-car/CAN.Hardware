@@ -15,6 +15,7 @@ namespace CAN.Hardware.Attributes
         Etas,
         Intrepid,
         EbEl,
+        ChuangXin,
     }
 
     /// <summary>
@@ -58,6 +59,18 @@ namespace CAN.Hardware.Attributes
     {
         USBCAN,
         USBCANFD200U
+    }
+
+    /// <summary>
+    /// 创芯科技(ChuangXin) 设备类型。
+    /// 经典 CAN 与 CANFD 使用两套不同的库:
+    /// USBCAN  -> ControlCAN.dll(VCI_ API),对应 USBCAN-2A/2C、CANalyst-II 至尊版/顶配/顶配Pro、OBD 版;
+    /// USBCANFD-> ControlCANFD.dll(ZCAN_ API),对应 USBCANFD 分析仪(200U/100U/MINI)。
+    /// </summary>
+    public enum ChuangXinDeviceType
+    {
+        USBCAN,
+        USBCANFD,
     }
 
     /// <summary>

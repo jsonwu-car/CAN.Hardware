@@ -26,6 +26,12 @@
     <Content Include="HwDependency\Zlg\USBCAN\Win\x64\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="HwDependency\ChuangXin\CAN\Win\x64\ControlCAN.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="HwDependency\ChuangXin\CANFD\Win\x64\ControlCANFD.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

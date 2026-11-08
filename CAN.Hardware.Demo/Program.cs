@@ -33,6 +33,10 @@ DemoCanFd();
 // DemoIntrepidCanFd();
 // EbEl 演示需要实际 Eberspächer FlexCard 硬件及 FlexCard 驱动(fcbase.dll),默认不启用;注意 FlexCard 只有经典 CAN
 // DemoEbElCan();
+// 创芯科技经典 CAN 演示需要实际硬件(USBCAN-2A/2C、CANalyst-II 等)及 ControlCAN.dll,默认不启用
+// DemoChuangXinCan();
+// 创芯科技 CANFD 演示需要实际 USBCANFD 硬件(200U/100U/MINI)及 ControlCANFD.dll,默认不启用
+// DemoChuangXinCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -812,6 +816,112 @@ static void DemoEbElCan()
     finally
     {
         ebel.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 创芯科技经典 CAN 调用示例:USBCAN-2A/2C、CANalyst-II 系列
+static void DemoChuangXinCan()
+{
+    IHardware? chuangXin = FactoryInstance.GetInstance(HardwareManufacturer.ChuangXin, ChuangXinDeviceType.USBCAN, CommProtocol.CAN);
+    if (chuangXin == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(Config 返回 BusConfigBase,转为具体配置类型后设置)
+    var config = (ChuangXinCANConfig)chuangXin.Config;
+    config.DeviceModel = ChuangXinCanDeviceModel.USBCAN2;        // USBCAN-2A/2C、CANalyst-II 常用值
+    config.DeviceIndex = 0;                                    // 设备索引号
+    config.DeviceChannel = 0;                                  // 通道号(0基)
+    config.CanBitrate = ChuangXinCanBitrate._500K;                // 波特率 500K
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    chuangXin.eventHandler += OnFrame;
+
+    try
+    {
+        if (!chuangXin.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ChuangXin CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = chuangXin.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        chuangXin.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 创芯科技 CANFD 调用示例:USBCANFD-200U/100U/MINI
+static void DemoChuangXinCanFd()
+{
+    IHardware? chuangXinFd = FactoryInstance.GetInstance(HardwareManufacturer.ChuangXin, ChuangXinDeviceType.USBCANFD, CommProtocol.CANFD);
+    if (chuangXinFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(默认即为 USBCANFD-200U、仲裁段 500K、数据段 2M)
+    var config = (ChuangXinCanFDConfig)chuangXinFd.Config;
+    config.DeviceModel = ChuangXinCanFdDeviceModel.USBCANFD_200U; // 设备型号
+    config.DeviceIndex = 0;                                    // 设备索引号
+    config.DeviceChannel = 0;                                  // 通道号(0基)
+    config.UseCanFD = true;                                    // 启用 CANFD 模式
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    chuangXinFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!chuangXinFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("ChuangXin CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧(FDF + BRS)
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = chuangXinFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        chuangXinFd.Close();
         Console.WriteLine("Closed.");
     }
 }
