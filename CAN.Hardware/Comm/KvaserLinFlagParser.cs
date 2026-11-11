@@ -13,14 +13,25 @@ namespace CAN.Hardware.Comm
     {
         private const uint LIN_MSGFLAG_TX = 0x01;
         private const uint LIN_MSGFLAG_RX = 0x02;
+        private const uint LIN_MSGFLAG_ERROR_BITS = LIN_MSGFLAG_CSUM_ERROR
+            | LIN_MSGFLAG_PARITY_ERROR | LIN_MSGFLAG_SYNCH_ERROR | LIN_MSGFLAG_BIT_ERROR;
+
+        // 与 Linlib 的 LIN_xxx 常量保持一致(重复定义一份,避免 P/Invoke 类泄漏到解析器)
+        private const uint LIN_MSGFLAG_CSUM_ERROR = 0x10;
+        private const uint LIN_MSGFLAG_PARITY_ERROR = 0x20;
+        private const uint LIN_MSGFLAG_SYNCH_ERROR = 0x40;
+        private const uint LIN_MSGFLAG_BIT_ERROR = 0x80;
 
         public static LinFrameFlags Parse(uint flags)
         {
+            // 错误位原样映射到 ErrorStatus(bit4~bit7),IsError 即非零
+            byte errorStatus = (byte)(flags & LIN_MSGFLAG_ERROR_BITS);
             return new LinFrameFlags
             {
                 RawFlags = flags,
                 IsTx = (flags & LIN_MSGFLAG_TX) != 0,
                 IsRx = (flags & LIN_MSGFLAG_RX) != 0,
+                ErrorStatus = errorStatus,
             };
         }
 
