@@ -114,6 +114,16 @@ namespace CAN.Hardware.BaseLibDll
             [Description("The requested feature or function is not implemented in the device you are trying to use it on")]
             linERR_NOT_IMPLEMENTED = -26
         }
+
+        /// <summary>
+        /// LIN 节点标志
+        /// </summary>
+        public enum LIN_NODE : int
+        {
+            LIN_MASTER = 1,
+            LIM_SLAVER = 2,
+            LIN_MONITOR = 3,
+        }
     }
 
     /// <summary>
@@ -153,6 +163,8 @@ namespace CAN.Hardware.BaseLibDll
 
         private static int _refCount = 0;
         private static readonly object _initLock = new object();
+
+        public const ulong MAX_STRING_SIZE = 1024uL;
 
         [DllImport(DLL_NAME)]
         private static extern void linInitializeLibrary();

@@ -192,6 +192,14 @@ static void DemoKvaserLin()
         // 主节点请求从机应答：只发 0x11 的报头,应答经 eventHandler 异步到达(见 OnFrame)
         bool requested = kvaserLin.RequestMessage(0x11);
         Console.WriteLine(requested ? "Message requested." : "Request failed.");
+
+        // 可选：对 0x12 注入校验和错误(报头后延迟 4 个位时间),再恢复正常发送
+        kvaserLin.SetIllegalMessage(0x12, checksumError: true, parityError: false, delayBitTimes: 4);
+        kvaserLin.SetIllegalMessage(0x12, false, false, 0);
+
+        // 从节点模式专用：清除指定帧 ID 的应答(需先 config.NodeMode = LinNodeMode.Slave)
+        // kvaserLin.ClearMessage(0x12);
+
         Console.ReadKey();
     }
     catch (Exception ex)

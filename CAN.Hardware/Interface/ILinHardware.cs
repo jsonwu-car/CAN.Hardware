@@ -22,5 +22,22 @@ namespace CAN.Hardware.Interface
         /// 未连接时仅更新配置(下次 Open 生效);返回 false 表示硬件不支持运行时切换或设置失败。
         /// </summary>
         bool SetChecksumType(bool enhanced);
+
+        /// <summary>
+        /// 对指定 LIN 帧 ID 设置错误注入：可选择反转校验和、反转 ID 奇偶位，
+        /// 并可在帧头之后、首字节之前插入延迟（单位：位时间）。
+        /// 两个开关都为 false 且 delayBitTimes 为 0 时恢复正常发送。
+        /// 帧 ID 非法、通道未打开或设置失败时抛出异常；返回 true 表示驱动已接受设置。
+        /// 注意：一次调用会覆盖该帧 ID 之前的干扰配置，不能同时保留两种独立状态。
+        /// </summary>
+        bool SetIllegalMessage(long linId, bool checksumError, bool parityError, uint delayBitTimes);
+
+        /// <summary>
+        /// 清除从节点指定 LIN 帧 ID 的响应：下一次主节点轮询该帧 ID 时从节点不再应答。
+        /// 仅从节点模式有效，通常要求通道已上线（on-bus）。
+        /// 恢复响应：从节点模式下对该帧 ID 重新调用 Send 武装响应数据即可。
+        /// 帧 ID 非法、通道未打开、当前不是从节点或清除失败时抛出异常；返回 true 表示驱动已接受清除。
+        /// </summary>
+        bool ClearMessage(long linId);
     }
 }

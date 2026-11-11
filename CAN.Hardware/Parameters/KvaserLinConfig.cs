@@ -10,7 +10,7 @@ namespace CAN.Hardware.Parameters
     {
         private uint _deviceChannel = 0;
         private bool _checksumType = false;
-        private bool _variableDlc = false;
+        private bool _variable_DLC = true;
 
         [Description("LIN设备通道号")]
         public uint DeviceChannel
@@ -27,10 +27,10 @@ namespace CAN.Hardware.Parameters
         }
 
         [Description("启用可变DLC(帧长度由ID查表决定)")]
-        public bool VariableDlc
+        public bool Variable_DLC
         {
-            get => _variableDlc;
-            set => SetProperty(ref _variableDlc, value);
+            get => _variable_DLC;
+            set => SetProperty(ref _variable_DLC, value);
         }
 
         public override void Init(XElement xElement)
@@ -38,7 +38,7 @@ namespace CAN.Hardware.Parameters
             base.Init(xElement);
             DeviceChannel = XmlAttributeParser.Get(xElement, nameof(DeviceChannel), DeviceChannel, throwIfMissing: false);
             ChecksumType = XmlAttributeParser.Get(xElement, nameof(ChecksumType), ChecksumType, throwIfMissing: false);
-            VariableDlc = XmlAttributeParser.Get(xElement, nameof(VariableDlc), VariableDlc, throwIfMissing: false);
+            Variable_DLC = XmlAttributeParser.Get(xElement, nameof(Variable_DLC), Variable_DLC, throwIfMissing: false);
         }
 
         public override XElement ToXElement(string NodeName)
@@ -46,7 +46,7 @@ namespace CAN.Hardware.Parameters
             XElement xelement = base.ToXElement(NodeName);
             xelement.Add(new XAttribute(nameof(DeviceChannel), DeviceChannel));
             xelement.Add(new XAttribute(nameof(ChecksumType), ChecksumType));
-            xelement.Add(new XAttribute(nameof(VariableDlc), VariableDlc));
+            xelement.Add(new XAttribute(nameof(Variable_DLC), Variable_DLC));
             return xelement;
         }
     }
