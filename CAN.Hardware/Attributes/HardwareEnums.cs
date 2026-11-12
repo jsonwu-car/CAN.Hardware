@@ -17,6 +17,7 @@ namespace CAN.Hardware.Attributes
         EbEl,
         ChuangXin,
         Toomoss,
+        Itekon,
     }
 
     /// <summary>
@@ -69,6 +70,18 @@ namespace CAN.Hardware.Attributes
     /// USBCANFD-> ControlCANFD.dll(ZCAN_ API),对应 USBCANFD 分析仪(200U/100U/MINI)。
     /// </summary>
     public enum ChuangXinDeviceType
+    {
+        USBCAN,
+        USBCANFD,
+    }
+
+    /// <summary>
+    /// 爱泰科技(Itekon) 设备类型。
+    /// 经典 CAN 与 CANFD 使用两套不同的库:
+    /// USBCAN  -> ControlCAN.dll(VCI_ API),对应 PCI/USB 经典 CAN 系列;
+    /// USBCANFD-> iTekCANFD.dll(iTek_ API),对应 USBCANFD/NetCANFD/WifiCANFD 等 CANFD 系列。
+    /// </summary>
+    public enum ItekonDeviceType
     {
         USBCAN,
         USBCANFD,

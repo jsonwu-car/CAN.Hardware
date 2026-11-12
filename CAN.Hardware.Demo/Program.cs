@@ -41,6 +41,10 @@ DemoCanFd();
 // DemoToomossCan();
 // 图莫斯 Toomoss CANFD 演示需要实际 USB2XXX 硬件及 USB2XXX.dll,默认不启用
 // DemoToomossCanFd();
+// 爱泰 Itekon 经典 CAN 演示需要实际硬件(PCI/USB 经典 CAN 系列)及 ControlCAN.dll,默认不启用
+// DemoItekonCan();
+// 爱泰 Itekon CANFD 演示需要实际硬件(USBCANFD/NetCANFD 等)及 iTekCANFD.dll,默认不启用
+// DemoItekonCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -1023,6 +1027,110 @@ static void DemoToomossCanFd()
     finally
     {
         toomossFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 爱泰 Itekon 经典 CAN 调用示例:PCI/USB 经典 CAN 系列(ControlCAN.dll)
+static void DemoItekonCan()
+{
+    IHardware? itekon = FactoryInstance.GetInstance(HardwareManufacturer.Itekon, ItekonDeviceType.USBCAN, CommProtocol.CAN);
+    if (itekon == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(Config 返回 BusConfigBase,转为具体配置类型后设置)
+    var config = (ItekonCANConfig)itekon.Config;
+    config.DeviceModel = ItekonCanDeviceModel.USBCAN2;        // 设备型号
+    config.DeviceIndex = 0;                                   // 设备索引号
+    config.DeviceChannel = 0;                                 // 通道号(0基)
+    config.CanBitrate = ItekonCanBitrate._500K;               // 波特率 500K
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    itekon.eventHandler += OnFrame;
+
+    try
+    {
+        if (!itekon.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Itekon CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = itekon.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        itekon.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 爱泰 Itekon CANFD 调用示例:USBCANFD/NetCANFD 等(iTekCANFD.dll)
+static void DemoItekonCanFd()
+{
+    IHardware? itekonFd = FactoryInstance.GetInstance(HardwareManufacturer.Itekon, ItekonDeviceType.USBCANFD, CommProtocol.CANFD);
+    if (itekonFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(默认即为 USBCANFD-X200、CANFD 协议、仲裁段 500K、数据段 2M)
+    var config = (ItekonCanFDConfig)itekonFd.Config;
+    config.DeviceModel = ItekonCanFdDeviceModel.USBCANFD_X200; // 设备型号
+    config.DeviceIndex = 0;                                    // 设备索引号
+    config.DeviceChannel = 0;                                  // 通道号(0基)
+    config.Protocol = ItekonCanFdProtocol.CANFD;               // 通道协议
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    itekonFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!itekonFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Itekon CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧(FDF + BRS)
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = itekonFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        itekonFd.Close();
         Console.WriteLine("Closed.");
     }
 }
