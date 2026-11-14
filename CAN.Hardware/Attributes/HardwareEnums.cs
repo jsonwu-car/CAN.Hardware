@@ -18,6 +18,7 @@ namespace CAN.Hardware.Attributes
         ChuangXin,
         Toomoss,
         Itekon,
+        GuangCheng,
     }
 
     /// <summary>
@@ -152,5 +153,17 @@ namespace CAN.Hardware.Attributes
     public enum EbElDeviceType
     {
         Generic,
+    }
+
+    /// <summary>
+    /// 广成科技(GuangCheng) 设备类型。
+    /// 经典 CAN 与 CANFD 使用两套不同的库:
+    /// USBCAN  -> ECanVci64.dll(ECanVci API),对应 USBCAN-I/II 经典 CAN 分析仪;
+    /// USBCANFD-> ECANFDVCI64.dll(ECanFDVci API),对应 USBCANFD 系列 CANFD 分析仪。
+    /// </summary>
+    public enum GuangChengDeviceType
+    {
+        USBCAN,
+        USBCANFD,
     }
 }

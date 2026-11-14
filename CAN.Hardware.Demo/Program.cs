@@ -45,6 +45,10 @@ DemoCanFd();
 // DemoItekonCan();
 // 爱泰 Itekon CANFD 演示需要实际硬件(USBCANFD/NetCANFD 等)及 iTekCANFD.dll,默认不启用
 // DemoItekonCanFd();
+// 广成科技经典 CAN 演示需要实际硬件(USBCAN-I/II 等)及 ECanVci64.dll,默认不启用
+// DemoGuangChengCan();
+// 广成科技 CANFD 演示需要实际硬件(USBCANFD 系列)及 ECANFDVCI64.dll,默认不启用
+// DemoGuangChengCanFd();
 
 // Kvaser CAN 调用示例：通过 厂商 -> 设备类型 -> 协议 枚举由工厂创建实例
 static void DemoCan()
@@ -1131,6 +1135,111 @@ static void DemoItekonCanFd()
     finally
     {
         itekonFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 广成科技经典 CAN 调用示例:USBCAN-I/II 系列(ECanVci64.dll)
+static void DemoGuangChengCan()
+{
+    IHardware? gcan = FactoryInstance.GetInstance(HardwareManufacturer.GuangCheng, GuangChengDeviceType.USBCAN, CommProtocol.CAN);
+    if (gcan == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(Config 返回 BusConfigBase,转为具体配置类型后设置)
+    var config = (GuangChengCANConfig)gcan.Config;
+    config.DeviceModel = GuangChengCanDeviceModel.USBCAN_II; // 双通道设备(DeviceType=4)
+    config.DeviceIndex = 0;                                   // 设备索引号
+    config.DeviceChannel = 0;                                 // 通道号(0基)
+    config.CanBitrate = GuangChengCanBitrate._500K;           // 波特率 500K
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    gcan.eventHandler += OnFrame;
+
+    try
+    {
+        if (!gcan.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("GuangCheng CAN opened.");
+
+        // 发送一帧标准帧
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = gcan.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        gcan.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// 广成科技 CANFD 调用示例:USBCANFD 系列(ECANFDVCI64.dll)
+static void DemoGuangChengCanFd()
+{
+    IHardware? gcanFd = FactoryInstance.GetInstance(HardwareManufacturer.GuangCheng, GuangChengDeviceType.USBCANFD, CommProtocol.CANFD);
+    if (gcanFd == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数(默认即为 仲裁段 500K、数据段 2M)
+    var config = (GuangChengCanFDConfig)gcanFd.Config;
+    config.DeviceIndex = 0;                                   // 设备索引号
+    config.DeviceChannel = 0;                                 // 通道号(0基)
+    config.UseCanFD = true;                                   // 启用 CANFD 帧
+    config.NominalBitrate = GuangChengCanFdNominalBitrate._500K;
+    config.DataBitrate = GuangChengCanFdDataBitrate._2M;
+
+    // 订阅报文推送(Rx 接收与 Tx 回显都会通过该事件推送)
+    gcanFd.eventHandler += OnFrame;
+
+    try
+    {
+        if (!gcanFd.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("GuangCheng CAN FD opened.");
+
+        // 发送一帧 64 字节的 CAN FD 帧(FDF + BRS)
+        var frame = new CANFrame
+        {
+            ID = 0x123,
+            DLC = 64,
+            Data = Enumerable.Range(0, 64).Select(i => (byte)i).ToArray(),
+            FDF = true,
+            BRS = true,
+        };
+        bool sent = gcanFd.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        gcanFd.Close();
         Console.WriteLine("Closed.");
     }
 }

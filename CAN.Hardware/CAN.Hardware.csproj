@@ -45,6 +45,12 @@
     <Content Include="HwDependency\Itekon\CANFD\Win\x64\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="HwDependency\GuangCheng\CAN\Win\x64\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="HwDependency\GuangCheng\CANFD\Win\x64\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
