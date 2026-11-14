@@ -7,6 +7,8 @@ using CAN.Hardware.Parameters;
 // 依次演示 Kvaser 经典 CAN 与 CAN FD 的调用
 DemoCan();
 DemoCanFd();
+// Kvaser LIN 演示需要实际具备 LIN 通道的 Kvaser 硬件及从机节点,默认不启用
+// DemoKvaserLin();
 // PEAK 演示需要实际 PEAK 硬件(PCAN-USB 等)及 PCAN-Basic 驱动,默认不启用
 // DemoPeakCan();
 // DemoPeakCanFd();
@@ -149,6 +151,73 @@ static void DemoCanFd()
     finally
     {
         kvaserFd.Close();
+        Console.WriteLine("Closed.");
+    }
+}
+
+// Kvaser LIN 调用示例：LIN 是请求/响应式总线，主节点用 RequestMessage 发报头，应答经事件异步上抛
+static void DemoKvaserLin()
+{
+    // 工厂返回 IHardware,需要 LIN 专用能力时转为 ILinHardware
+    ILinHardware? kvaserLin = FactoryInstance.GetInstance(HardwareManufacturer.Kvaser, KvaserDeviceType.Generic, CommProtocol.LIN) as ILinHardware;
+    if (kvaserLin == null)
+    {
+        Console.WriteLine("未找到匹配的硬件实现。");
+        return;
+    }
+
+    // 配置硬件参数（默认即为主节点、19200bps、经典校验和）
+    var config = (KvaserLinConfig)kvaserLin.Config;
+    config.DeviceChannel = 0;                          // 通道号
+    config.LinBitrate = 19200;                         // 波特率 19200
+    config.NodeMode = LinNodeMode.Master;              // 主节点(报头由本机发送)
+
+    // 订阅报文推送（Rx 接收与 Tx 回显都会通过该事件推送）
+    kvaserLin.eventHandler += OnFrame;
+
+    try
+    {
+        if (!kvaserLin.Open())
+        {
+            Console.WriteLine("Open failed.");
+            return;
+        }
+        Console.WriteLine("Kvaser LIN opened.");
+
+        // 主节点发送一帧完整帧（报头+响应）
+        var frame = new LINFrame
+        {
+            ID = 0x10,
+            DLC = 8,
+            Data = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88 },
+        };
+        bool sent = kvaserLin.Send(frame);
+        Console.WriteLine(sent ? "Frame sent." : "Send failed.");
+
+        // 可选：唤醒休眠的从节点(唤醒后按需延时约 100ms)
+        kvaserLin.WakeUp();
+
+        // 主节点请求从机应答：只发 0x11 的报头,应答经 eventHandler 异步到达(见 OnFrame)
+        bool requested = kvaserLin.RequestMessage(0x11);
+        Console.WriteLine(requested ? "Message requested." : "Request failed.");
+
+        // 可选：给 0x12 注入校验和错误(报头后延迟 4 个位时间),再恢复正常发送
+        kvaserLin.SetIllegalMessage(0x12, checksumError: true, parityError: false, delayBitTimes: 4);
+        kvaserLin.SetIllegalMessage(0x12, false, false, 0);
+
+        // 从节点模式专用：清除指定帧 ID 的应答(需 config.NodeMode = LinNodeMode.Slave)
+        // kvaserLin.ClearMessage(0x12);
+
+        Console.ReadKey();
+    }
+    catch (Exception ex)
+    {
+        // 未连接硬件/驱动时 Open 会抛出异常
+        Console.WriteLine($"Error: {ex.Message}");
+    }
+    finally
+    {
+        kvaserLin.Close();
         Console.WriteLine("Closed.");
     }
 }
@@ -1250,5 +1319,10 @@ static void OnFrame(object? sender, FrameBase frame)
     {
         string dir = can.Dir == 0 ? "TX" : "RX";
         Console.WriteLine($"{dir} ID=0x{can.ID:X3} DLC={can.DLC} Data={Convert.ToHexString(can.Data)} Flags={can.Flags}");
+    }
+    else if (frame is LINFrame lin)
+    {
+        string dir = lin.Dir == 0 ? "TX" : "RX";
+        Console.WriteLine($"{dir} ID=0x{lin.ID:X2} DLC={lin.DLC} Data={Convert.ToHexString(lin.Data)} Flags={lin.Flags}");
     }
 }
