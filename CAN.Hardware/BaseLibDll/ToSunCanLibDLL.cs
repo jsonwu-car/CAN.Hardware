@@ -954,6 +954,24 @@ namespace CAN.Hardware.BaseLibDll
         public static extern uint tslin_set_node_funtiontype(IntPtr ADeviceHandle, CHANNEL_INDEX AChnIdx, T_LIN_NODE_FUNCTION AFunctionType);
 
         [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_set_node_functiontype(IntPtr ADeviceHandle, CHANNEL_INDEX AChnIdx, T_LIN_NODE_FUNCTION AFunctionType);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_start_lin_channel(IntPtr ADeviceHandle, CHANNEL_INDEX AChnIdx);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_batch_set_schedule_start(IntPtr ADeviceHandle, int AChnIdx);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_batch_add_schedule_frame(IntPtr ADeviceHandle, int AChnIdx, ref TLIBLIN ALIN, byte ADelayMs);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_batch_set_schedule_end(IntPtr ADeviceHandle, int AChnIdx);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
+        public static extern uint tslin_switch_runtime_schedule_table(IntPtr ADeviceHandle, int AChnIdx);
+
+        [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
         public unsafe static extern uint tstp_lin_master_request(IntPtr ADeviceHandle, CHANNEL_INDEX AChnIdx, byte ANAD, byte* AData, ushort ADataNum, uint ATimeoutMs);
 
         [DllImport(TSCANDLL_NAME, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Ansi)]
