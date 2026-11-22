@@ -307,7 +307,7 @@ namespace CAN.Hardware.BaseLibDll
         public struct RxData
         {
             public UInt64 timeStamp;
-            public byte datalen;
+            public byte dataLen;
             public byte dir;
             public byte chkSum;
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 13)]
@@ -389,7 +389,7 @@ namespace CAN.Hardware.BaseLibDll
             public byte chkSumMode;         // 1-经典校验，2-增强校验 3-自动(对应eZLINChkSumMode的模式)
             public byte maxLength;          // 最大数据长度，8~64
             public byte reserved;
-            public uint libBaud;            // 波特率，取值1000~20000
+            public uint linBaud;            // 波特率，取值1000~20000
 
         };
 
@@ -398,7 +398,7 @@ namespace CAN.Hardware.BaseLibDll
         public struct ZCAN_LIN_PUBLISH_CFG
         {
             public byte ID;                                         // 受保护的ID（ID取值范围为0-63）
-            public byte datelen;                                    // 范围1~8
+            public byte dataLen;                                    // 范围1~8
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]    // 数据段内容
             public byte[] data;
             public byte chkSumMode;                                 // 校验方式：0-默认，启动时配置  1-经典校验  2-增强校验(对应eZLINChkSumMode的模式)
@@ -411,7 +411,7 @@ namespace CAN.Hardware.BaseLibDll
         public struct ZCAN_LIN_SUBSCIBE_CFG
         {
             public byte ID;                                         // 受保护的ID（ID取值范围为0-63）
-            public byte datelen;                                    // dataLen范围为1-8 当为255（0xff）则表示设备自动识别报文长度
+            public byte dataLen;                                    // dataLen范围为1-8 当为255（0xff）则表示设备自动识别报文长度
             public byte chkSumMode;                                 // 校验方式：0-默认，启动时配置  1-经典校验  2-增强校验(对应eZLINChkSumMode的模式)
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 5)]
             public byte[] reserved;
